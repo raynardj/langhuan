@@ -2,8 +2,22 @@
 
 {%block work_title%}
 <h3 class="m-3">
-    Langhuan 🏷 : NER task
+    <strong>Lang</strong><span class='text-warning'>Hu</span><span class='text-danger'>an</span> 
 </h3>
+<h4 class="m-3" title="Named Entity Recognition">NER task</h4>
+{%endblock%}
+
+{%block controls%}
+<div class="m-3">
+    <h5 class="mt-2 mb-2">
+        Controls
+    </h5>
+    <div class="m-2 btn-group">
+        <button id='next' class="btn btn-primary btn-sm">Finish</button>
+        <button id='skip' class="btn btn-warning btn-sm">Skip</button>
+    </div>
+</div>
+
 {%endblock%}
 
 {%block tail_js%}
@@ -12,50 +26,117 @@
     var color_ct = 0
 
     var option_list = [];
-    for(var i in options){
-        if(color_ct>=flavors.length){color_ct==0}
-        option_list.push({label:options[i], flavor:flavors[color_ct]})
-        color_ct+=1
+    for (var i in options) {
+        if (color_ct >= flavors.length) {
+            color_ct == 0
+        }
+        option_list.push({
+            label: options[i],
+            flavor: flavors[color_ct]
+        })
+        color_ct += 1
     }
 
-    class NERBlock{
-        constructor(d){
-            this.node = document.createElement("span")
-            this.node.className=`bg-${d.flavor} text-white p-2`
+    class NERBlock {
+        constructor(d) {
+            this.node = document.createElement("span");
+            this.node.className = `bg-${d.flavor} text-white p-2`;
+            this.node.style = "border-radius:3px";
+            this.node.datasets = d;
+            this.node.title = d.label;
             var node = this.node
-            this.node.addEventListener("click", ()=>{
+
+            this.node.addEventListener("click", () => {
+                node.after(node.innerText)
                 node.remove()
             })
         }
-        
-        get_node = () =>{
+
+        get_node = () => {
             return this.node
         }
     }
 
-    const tag_NER = (e, d) => {
-        var selected = window.getSelection()
-        console.log(selected)
-        var {anchorOffset, focusOffset} = selected
-        console.log({anchorOffset, focusOffset})
-        var range = selected.getRangeAt(0)
-        var ner_block = new NERBlock(d)
-        range.surroundContents(ner_block.get_node())
+    const calc_label = () => {
+        var nodes = document.querySelector("#raw_text").childNodes
+
+        var tags = [];
+        var l_ct = 0
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i]
+            if (node.nodeName == "#text") {
+                l_ct += node.textContent.length
+            }
+            if (node.nodeName == "SPAN") {
+                tags.push({
+                    offset: l_ct,
+                    text: node.textContent,
+                    label: node.datasets.label
+                })
+                l_ct += node.textContent.length
+            }
+        }
+        return tags
     }
+
+    const next_btn = () => {
+        var tags = calc_label()
+        var data = {idx, tags}
+        console.log(data)
+        tagging(data)
+    }
+
+    document.querySelector("#next").addEventListener("click", next_btn)
+
+    const tag_NER = (e, d) => {
+        try {
+            var selected = document.getSelection()
+
+            if(selected.baseNode.parentElement.id!="raw_text")
+            {
+                // select outside of the textarea
+                return
+            }
+
+            var {
+                anchorOffset,
+                focusOffset
+            } = selected
+
+            var range = selected.getRangeAt(0)
+            var ner_block = new NERBlock(d)
+            range.surroundContents(ner_block.get_node())
+        }
+        catch(e)
+        {
+            if(e instanceof DOMException)
+            {console.error("Selection should not overlap");}
+            else{
+                throw e;
+            }
+        }
+    }
+
+
 
     const visualize_options = (options) => {
         d3.select("#label_pool").selectAll("span")
-        .data(options)
-        .enter().append("span")
-        .style("border-radius", "3px")
-        .attr("class",(d)=>{
-            return `bg-${d.flavor} text-white pt-1 pb-2 pl-3 pr-3 m-1`
-        })
-        .text((d)=>{return d.label})
-        .on('mousedown', function(e){ e.preventDefault(); })
-        .on("click", tag_NER)
+            .data(options)
+            .enter().append("span")
+            .style("border-radius", "3px")
+            .attr("class", (d) => {
+                return `bg-${d.flavor} text-white pt-1 pb-2 pl-3 pr-3 m-1`
+            })
+            .text((d) => {
+                return d.label
+            })
+            .on('mousedown', function (e) {
+                e.preventDefault();
+            })
+            .on("click", tag_NER)
     }
 
     visualize_options(option_list)
+
 </script>
 {%endblock%}

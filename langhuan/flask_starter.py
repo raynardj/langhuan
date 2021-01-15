@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request, jsonify
 from .hyperflask import HyperFlask
 from flask.templating import render_template
 import logging
@@ -11,6 +11,13 @@ from pathlib import Path
 
 
 def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
+
+
+def now_specific(): return datetime.now().strftime("%y-%m-%d_%H:%M:%S")
+
+
+tagged = dict()
+history = list()
 
 
 class Options(object):
@@ -79,7 +86,7 @@ class LangHuanBaseTask(Flask):
             app_name,
             static_folder=str(get_root()/"static"),
             template_folder=str(get_root()/"templates")
-            )
+        )
 
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         HyperFlask(app)
@@ -97,6 +104,25 @@ class LangHuanBaseTask(Flask):
 
     def register(self):
         return NotImplementedError("LangHuanBaseTask should be inherited")
+
+    def register_functions(self):
+        @self.route("/tagging", methods=["POST"])
+        def tagging():
+            remote_addr = request.remote_addr
+            data = json.loads(request.data)
+            data.update({"remote_addr": remote_addr, "now":now_specific()})
+            tagged[data["idx"]] = data
+            history.append(data)
+            return jsonify({"idx":data["idx"]}), 200
+
+        @self.route("/latest", methods=["POST", "GET"])
+        def lastest():
+            if request.method =="POST":
+                data = json.loads(request.data)
+                n = data["n"] if "n" in data else 20
+            else:
+                n=20
+            return jsonify(history[-n:][::-1])
 
 
 class NERTask(LangHuanBaseTask):
@@ -116,3 +142,5 @@ class NERTask(LangHuanBaseTask):
                 "ner.html",
                 idx=idx, text=text, options=list(options)
             )
+
+        self.register_functions()

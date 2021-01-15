@@ -6,7 +6,7 @@
 
 {%block content%}
 <div class="row">
-    <div class="col-sm-3">
+    <div class="col-sm-3 p-e">
 
         {%block work_title%}
         <h3 class="m-3">Labeling</h3>
@@ -14,22 +14,31 @@
         {%endblock%}
         <hr>
 
+        {%block controls%}
+                
+        {%endblock%}
+
         <div id="histories">
 
         </div>
     </div>
 
     <div class="col-sm-9">
+        {%block topbar%}
         <div class="card m-2">
             <div class="card-body">
+                {%block labels%}
                 <h5>
                     Labels
                 </h5>
                 <div id="label_pool" class="p-1">
 
                 </div>
+                {%endblock%}
+                
             </div>
         </div>
+        {%endblock%}
         <div class="card m-2">
             <div id="raw_text" class="card-body">{%block raw_text%}{{text}}{%endblock%}</div>
         </div>
@@ -45,6 +54,20 @@
         "primary", "danger", "success", "warning", "dark", "secondary", "info"
     ]
     var options=[{%for o in options%}"{{o}}",{%endfor%}]
+    var idx = {{idx}}
+
+    const tagging = (data) => {
+        fetch("/tagging", {
+            method:"POST",
+            headers:{
+                'Content-Type': 'application/json'
+            },
+            body:JSON.stringify(data)
+        })
+        .then(res=>res.json())
+        .then(data=>{location.reload()})
+        .catch(console.error)
+    }
     
 </script>
 {%endblock%}
