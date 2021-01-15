@@ -1,0 +1,50 @@
+{%extends "base.html"%}
+
+{%block title%}
+<title>Lang Huan: Main</title>
+{%endblock%}
+
+{%block content%}
+<div class="row">
+    <div class="col-sm-3">
+
+        {%block work_title%}
+        <h3 class="m-3">Labeling</h3>
+        
+        {%endblock%}
+        <hr>
+
+        <div id="histories">
+
+        </div>
+    </div>
+
+    <div class="col-sm-9">
+        <div class="card m-2">
+            <div class="card-body">
+                <h5>
+                    Labels
+                </h5>
+                <div id="label_pool" class="p-1">
+
+                </div>
+            </div>
+        </div>
+        <div class="card m-2">
+            <div id="raw_text" class="card-body">{%block raw_text%}{{text}}{%endblock%}</div>
+        </div>
+
+    </div>
+</div>
+{%endblock%}
+
+{%block tail_js%}
+{{super()}}
+<script>
+    const flavors = [
+        "primary", "danger", "success", "warning", "dark", "secondary", "info"
+    ]
+    var options=[{%for o in options%}"{{o}}",{%endfor%}]
+    
+</script>
+{%endblock%}
