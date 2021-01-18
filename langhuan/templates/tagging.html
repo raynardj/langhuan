@@ -40,7 +40,7 @@
         </div>
         {%endblock%}
         <div class="card m-2">
-            <div id="raw_text" class="card-body">{%block raw_text%}{{text}}{%endblock%}</div>
+            <pre id="raw" class="card-body">{%block raw%}{%endblock%}</pre>
         </div>
 
     </div>
@@ -53,10 +53,59 @@
     const flavors = [
         "primary", "danger", "success", "warning", "dark", "secondary", "info"
     ]
-    var options=[{%for o in options%}"{{o}}",{%endfor%}]
-    var idx = {{idx}}
+    var index = {{index}}
+
+    const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
+
+    const get_user_id = () =>{
+        var user_id = localStorage.getItem("lh_user")
+        if(user_id)
+        {
+            return user_id
+        } else
+        {
+            user_id = genRanHex(10)
+            localStorage.setItem("lh_user", user_id)
+            return user_id
+        }
+    }
+
+    var user_id = get_user_id();
+    console.log(user_id)
+
+    fetch("/data",{
+        method:"POST",
+        header:{
+            "Content-Type":"application/json"
+        },
+        body: JSON.stringify({index, user_id: get_user_id()})
+    }).then(res=>res.json())
+    .then(d=>{
+        create_raw(d);
+        create_controls(d);
+    })
+    .catch(console.error)
+
+    const skipping = () => {
+        var user_id = get_user_id();
+        var skipped = true;
+        var index = parseInt(document.querySelector("#raw").dataset.hl_index);
+        fetch("/tagging", {
+            method:"POST",
+            headers:{
+                'Content-Type': 'application/json'
+            },
+            body:JSON.stringify({user_id, index, skipped})
+        })
+        .then(res=>res.json())
+        .then(data=>{location.reload()})
+        .catch(console.error)
+    }
 
     const tagging = (data) => {
+        data.user_id = get_user_id()
+        data.index = parseInt(
+            document.querySelector("#raw").dataset.hl_index);
         fetch("/tagging", {
             method:"POST",
             headers:{

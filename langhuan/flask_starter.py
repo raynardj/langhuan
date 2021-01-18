@@ -17,6 +17,26 @@ def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
 def now_specific(): return datetime.now().strftime("%y-%m-%d_%H:%M:%S")
 
 
+def cleanup_tags(x):
+    return x.replace("<", "◀️").replace(">", "▶️")
+
+
+def arg_by_key(key: str) -> Union[str, int, float]:
+    """
+    get a value either by GET or POST method
+    with api function
+    """
+    if request.method == "POST":
+        data = json.loads(request.data)
+        rt = data[key]
+    elif request.method == "GET":
+        rt = request.args.get(key)
+    else:
+        raise RuntimeError(
+            "method has to be GET or POST")
+    return rt
+
+
 tagged = dict()
 history = list()
 
@@ -69,22 +89,61 @@ class Options(object):
 def get_root():
     return Path(__file__).parent.absolute()
 
-class Progress:
-    def __init__(self, progress_list: List[int], cross_verify_num: int = 1):
-        self.progress_list = progress_list
-        self.depth = dict((i,0) for i in range(len(progress_list)))
-        self.cross_verify_num = cross_verify_num
-        self.ct = 0
 
-    def __getitem__(self, idx):
-        return self.progress_list[idx]
-    
-    def __next__(self):
-        rt = self[self.ct]
-        self.ct+=1
-        # to do, continue work on progress
-        # if one opened, but not worked on yet?
-        return rt
+class Progress:
+    """
+    A project progress handler,
+        allowing multiple but limited number of users
+        working a the same progress, with limited tags
+        per entry of raw data
+    """
+
+    def __init__(
+        self,
+        progress_list: List[int],
+        cross_verify_num: int = 1
+    ):
+        self.progress_list = progress_list
+        self.v_num = cross_verify_num
+        self.ct = 0
+        self.depth = dict((i, dict()) for i in range(len(progress_list)))
+        self.idx_to_index = dict((v, k) for k, v in enumerate(progress_list))
+
+        self.by_user_wip = dict()
+
+    def __getitem__(self, index: int) -> Union[int, str]:
+        return self.progress_list[index]
+
+    def next_id(self, user_id: str) -> Union[int, str]:
+        """
+        user_id, random generated hex string
+        return the next id for dataframe index
+        """
+        if self.ct >= len(self.progress_list):
+            raise StopIteration("Task done")
+
+        if len(self.depth[self.ct]) >= self.v_num:
+            self.ct += 1
+            return self.next_id(user_id)
+
+        elif len(self.depth[self.ct]) +\
+            len(list(filter(
+                lambda x: x == self.ct,
+                self.by_user_wip.values()))) >= self.v_num:
+            self.ct += 1
+            return self.next_id(user_id)
+
+        else:
+            self.by_user_wip[user_id] = self.ct
+            return self.ct
+
+    def tagging(self, data):
+        index = arg_by_key("index")
+        user_id = data["user_id"]
+        self.depth[index][user_id] = data
+        if user_id in self.by_user_wip:
+            del self.by_user_wip[user_id]
+
 
 class LangHuanBaseTask(Flask):
     task_type = None
@@ -112,7 +171,7 @@ class LangHuanBaseTask(Flask):
         HyperFlask(app)
 
         app.register(df, text_col, Options(df, options))
-        app.create_progress(order_strategy, order_by_column)
+        app.create_progress(order_strategy, order_by_column, cross_verify_num)
 
         return app
 
@@ -181,21 +240,29 @@ class LangHuanBaseTask(Flask):
             list(smaller.index)[smaller_mid_point:][::-1],
         )
 
-    def create_progress(self, order_strategy: str, order_by_column: str):
+    def create_progress(
+        self,
+        order_strategy: str,
+        order_by_column: str,
+        cross_verify_num: int,
+    ) -> List[int]:
         strategy_options = {
-            "forward_match": self.forward_march,
+            "forward_march": self.forward_march,
             "pincer": self.pincer,
             "trident": self.trident,
         }
 
         if type(order_strategy) == str:
             assert order_strategy in strategy_options,\
-                f"order_strategy has to be one of {list(strategy_options.keys())}"
-            self.progress_list = strategy_options[order_strategy](order_by_column=order_by_column)
-
-        self.progress_list = order_strategy()
+                f"""order_strategy has to be one of
+            {list(strategy_options.keys())}"""
+            self.progress_list = strategy_options[order_strategy](
+                order_by_column=order_by_column)
+        else:
+            self.progress_list = order_strategy()
+        self.progress = Progress(
+            self.progress_list, cross_verify_num=cross_verify_num)
         return self.progress_list
-
 
     def __repr__(self):
         return f"""{self.__class__.__name__},
@@ -203,7 +270,15 @@ class LangHuanBaseTask(Flask):
 
     @staticmethod
     def create_task_name(task_name, task_type):
-        return task_name if task_name else f"task_{task_type}_{now_str}"
+        return task_name if task_name else f"task_{task_type}_{now_str()}"
+
+    def log_skip(self, user_id):
+        if user_id in self.progress.by_user_wip:
+            history.append(
+                dict(
+                    index=self.progress.by_user_wip[user_id],
+                    user_id=user_id))
+            del self.progress.by_user_wip[user_id]
 
     def register(
         self,
@@ -212,20 +287,40 @@ class LangHuanBaseTask(Flask):
         options: List[str],
     ) -> None:
         return NotImplementedError(
-            "LangHuanBaseTask register() should be over writen")
+            "LangHuanBaseTask.register() should be over writen")
 
     def register_functions(self):
         """
         register the custom decorated route functions
         """
+        @self.route("/data", methods=["POST", "GET"])
+        def raw_data():
+            index = arg_by_key("index")
+            user_id = arg_by_key("user_id")
+            # move on the progress
+            if index == -1:
+                try:
+                    self.log_skip(user_id)
+                    index = self.progress.next_id(user_id)
+                except StopIteration:
+                    return jsonify(dict(done=True))
+
+            # transform range index to dataframe index
+            idx = self.progress[index]
+            text = cleanup_tags(self.df.loc[idx, self.text_col])
+            options = self.options[idx]
+
+            return jsonify(
+                dict(idx=idx, index=index, text=text, options=list(options)))
+
         @self.route("/tagging", methods=["POST"])
         def tagging():
             remote_addr = request.remote_addr
             data = json.loads(request.data)
             data.update({"remote_addr": remote_addr, "now": now_specific()})
-            tagged[data["idx"]] = data
+            self.progress.tagging(data)
             history.append(data)
-            return jsonify({"idx": data["idx"]}), 200
+            return jsonify({"index": data["index"]}), 200
 
         @self.route("/latest", methods=["POST", "GET"])
         def lastest():
@@ -235,6 +330,21 @@ class LangHuanBaseTask(Flask):
             else:
                 n = 20
             return jsonify(history[-n:][::-1])
+
+        @self.route("/monitor", methods=["POST", "GET"])
+        def monitor():
+            stats = dict(
+                total=len(self.progress.progress_list),
+                by_user=self.progress.by_user_wip,
+                current_id=self.progress.ct,
+            )
+            return jsonify(stats)
+
+        @self.route("/tagged", methods=["POST", "GET"])
+        def tagged_data():
+            return jsonify(
+                dict((k, v) for k, v in self.progress.depth.items()
+                     if len(v) > 0))
 
 
 class NERTask(LangHuanBaseTask):
@@ -252,19 +362,15 @@ class NERTask(LangHuanBaseTask):
 
         @self.route("/")
         def idx_page():
-            logging.info(str(request.headers))
             # with specific index
-            idx_qs = request.args.get("idx")
-            if idx_qs is not None:
-                idx = idx_qs[0]
-
-            idx = 0
-
-            text = self.df.loc[idx, self.text_col]
-            options = self.options[idx]
+            index_qs = arg_by_key("index")
+            if index_qs is not None:
+                index = index_qs[0]
+            else:
+                index = -1
             return render_template(
                 "ner.html",
-                idx=idx, text=text, options=list(options)
+                index=index,
             )
 
         self.register_functions()

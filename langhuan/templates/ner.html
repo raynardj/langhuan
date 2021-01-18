@@ -2,7 +2,7 @@
 
 {%block work_title%}
 <h3 class="m-3">
-    <strong>Lang</strong><span class='text-warning'>Hu</span><span class='text-danger'>an</span> 
+    <strong>Lang</strong><span class='text-warning'>Hu</span><span class='text-danger'>an</span>
 </h3>
 <h4 class="m-3" title="Named Entity Recognition">NER task</h4>
 {%endblock%}
@@ -25,16 +25,27 @@
 <script>
     var color_ct = 0
 
-    var option_list = [];
-    for (var i in options) {
-        if (color_ct >= flavors.length) {
-            color_ct == 0
+    const create_raw = (d) => {
+        console.log(d)
+        document.querySelector("#raw").innerHTML = d.text
+        document.querySelector("#raw").dataset.hl_index = d.index
+    }
+
+    const create_controls = (d) => {
+        var option_list = [];
+        for (var i in d.options) {
+            if (color_ct >= flavors.length) {
+                color_ct == 0
+            }
+            option_list.push({
+                label: d.options[i],
+                flavor: flavors[color_ct]
+            })
+            color_ct += 1
         }
-        option_list.push({
-            label: options[i],
-            flavor: flavors[color_ct]
-        })
-        color_ct += 1
+
+        visualize_options(option_list)
+        
     }
 
     class NERBlock {
@@ -58,7 +69,7 @@
     }
 
     const calc_label = () => {
-        var nodes = document.querySelector("#raw_text").childNodes
+        var nodes = document.querySelector("#raw").childNodes
 
         var tags = [];
         var l_ct = 0
@@ -81,20 +92,24 @@
 
     const next_btn = () => {
         var tags = calc_label()
-        var data = {idx, tags}
+        var data = { tags }
         console.log(data)
         tagging(data)
     }
 
+
     document.querySelector("#next").addEventListener("click", next_btn)
+    document.querySelector("#skip").addEventListener("click", skipping)
+
 
     const tag_NER = (e, d) => {
+        console.log(`clicked ${JSON.stringify(d, 0, 2)}`)
         try {
             var selected = document.getSelection()
 
-            if(selected.baseNode.parentElement.id!="raw_text")
-            {
+            if (selected.baseNode.parentElement.id != "raw") {
                 // select outside of the textarea
+                console.log(`out of area ${selected.baseNode.parentElement.id}`)
                 return
             }
 
@@ -107,17 +122,13 @@
             var ner_block = new NERBlock(d)
             range.surroundContents(ner_block.get_node())
         }
-        catch(e)
-        {
-            if(e instanceof DOMException)
-            {console.error("Selection should not overlap");}
-            else{
+        catch (e) {
+            if (e instanceof DOMException) { console.error("Selection should not overlap"); }
+            else {
                 throw e;
             }
         }
     }
-
-
 
     const visualize_options = (options) => {
         d3.select("#label_pool").selectAll("span")
@@ -136,7 +147,7 @@
             .on("click", tag_NER)
     }
 
-    visualize_options(option_list)
+    
 
 </script>
 {%endblock%}
