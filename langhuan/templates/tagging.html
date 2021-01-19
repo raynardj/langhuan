@@ -71,7 +71,6 @@
     }
 
     var user_id = get_user_id();
-    console.log(user_id)
 
     fetch("/data",{
         method:"POST",
@@ -81,8 +80,8 @@
         body: JSON.stringify({index, user_id: get_user_id()})
     }).then(res=>res.json())
     .then(d=>{
-        create_raw(d);
         create_controls(d);
+        create_raw(d);
     })
     .catch(console.error)
 
@@ -98,7 +97,7 @@
             body:JSON.stringify({user_id, index, skipped})
         })
         .then(res=>res.json())
-        .then(data=>{location.reload()})
+        .then(data=>{window.location="/"})
         .catch(console.error)
     }
 
@@ -114,7 +113,7 @@
             body:JSON.stringify(data)
         })
         .then(res=>res.json())
-        .then(data=>{location.reload()})
+        .then(data=>{window.location="/"})
         .catch(console.error)
     }
     

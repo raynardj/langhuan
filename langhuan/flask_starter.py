@@ -310,8 +310,12 @@ class LangHuanBaseTask(Flask):
             text = cleanup_tags(self.df.loc[idx, self.text_col])
             options = self.options[idx]
 
-            return jsonify(
-                dict(idx=idx, index=index, text=text, options=list(options)))
+            rt = dict(idx=idx, index=index, text=text, options=list(options))
+
+            if user_id in self.progress.depth[index].keys():
+                rt.update({"record": self.progress.depth[index][user_id]})
+
+            return jsonify(rt)
 
         @self.route("/tagging", methods=["POST"])
         def tagging():
@@ -372,5 +376,12 @@ class NERTask(LangHuanBaseTask):
                 "ner.html",
                 index=index,
             )
+
+        @self.route("/result")
+        def download_result():
+            """
+            return the result as a big json string
+            """
+            return jsonify(self.progress.depth)
 
         self.register_functions()

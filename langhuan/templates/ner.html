@@ -29,24 +29,45 @@
         console.log(d)
         document.querySelector("#raw").innerHTML = d.text
         document.querySelector("#raw").dataset.hl_index = d.index
+
+        if (d.record) {
+            // this is a data entry this user already tagged
+            if (d.record.tags) {
+                var option_to_data = JSON.parse(document
+                    .querySelector("#label_pool")
+                    .dataset.option_to_data)
+                var tags = d.record.tags
+                visualize_tags({ option_to_data, tags })
+            }
+        }
     }
 
     const create_controls = (d) => {
+        var { option_list, option_to_data } = create_option_list(d.options)
+        document.querySelector("#label_pool").dataset.option_list = JSON.stringify(option_list)
+        document.querySelector("#label_pool").dataset.option_to_data = JSON.stringify(option_to_data)
+        visualize_options(option_list)
+    }
+
+    const create_option_list = (options) => {
         var option_list = [];
-        for (var i in d.options) {
+        var option_to_data = {}
+        for (var i in options) {
             if (color_ct >= flavors.length) {
                 color_ct == 0
             }
-            option_list.push({
-                label: d.options[i],
+            var dt = {
+                label: options[i],
                 flavor: flavors[color_ct]
-            })
+            }
+            option_list.push(dt)
+            option_to_data[options[i]] = dt
             color_ct += 1
         }
-
-        visualize_options(option_list)
-        
+        return { option_list, option_to_data }
     }
+
+
 
     class NERBlock {
         constructor(d) {
@@ -147,7 +168,41 @@
             .on("click", tag_NER)
     }
 
-    
+    const visualize_tags = (ipt) => {
+        var { tags, option_to_data } = ipt;
+        console.log(tags);
+        var subs = [];
+        var ct = 0;
+        var raw = document.querySelector("#raw")
+        var text = raw.innerText
+
+        for (var i in tags) {
+            var tag = tags[i];
+            subs.push({ text: text.substring(ct, tag.offset) })
+            ct = tag.offset + tag.text.length
+            subs.push({
+                text: text.substring(tag.offset, ct),
+                label_data: option_to_data[tag.label]
+            })
+        }
+        subs.push({ text: text.substring(ct, text.length) })
+        console.log(subs)
+
+        raw.innerHTML=""
+
+        for (var i in subs) {
+            var sub = subs[i];
+            if (sub.label_data) {
+                var ner_node = new NERBlock(sub.label_data).get_node()
+                ner_node.innerText = sub.text
+                raw.append(ner_node)
+            } else {
+                raw.append(sub.text)
+            }
+        }
+    }
+
+
 
 </script>
 {%endblock%}
