@@ -101,12 +101,15 @@ class Progress:
     def __init__(
         self,
         progress_list: List[int],
-        cross_verify_num: int = 1
+        cross_verify_num: int = 1,
+        history_length: int = 20,
     ):
         self.progress_list = progress_list
+        self.history_length = history_length
         self.v_num = cross_verify_num
         self.ct = 0
         self.depth = dict((i, dict()) for i in range(len(progress_list)))
+        self.personal_history = dict()
         self.idx_to_index = dict((v, k) for k, v in enumerate(progress_list))
 
         self.by_user_wip = dict()
@@ -141,8 +144,23 @@ class Progress:
         index = arg_by_key("index")
         user_id = data["user_id"]
         self.depth[index][user_id] = data
+        self.update_personal(data)
         if user_id in self.by_user_wip:
             del self.by_user_wip[user_id]
+
+    def update_personal(self, data):
+        """
+        update data to personal history
+        """
+        user_id = data["user_id"]
+        personal_history = self.personal_history.get(user_id)
+        if type(personal_history) == list:
+            personal_history.append(data)
+            if len(personal_history) > self.history_length:
+                personal_history = personal_history[1:]
+        else:
+            self.personal_history[user_id] = []
+            self.update_personal(data)
 
 
 class LangHuanBaseTask(Flask):
@@ -383,5 +401,22 @@ class NERTask(LangHuanBaseTask):
             return the result as a big json string
             """
             return jsonify(self.progress.depth)
+
+        @self.route("/personal_history")
+        def personal_history():
+            user_id = arg_by_key("user_id")
+            result = []
+            personal_history = self.progress.personal_history[user_id]
+
+            if personal_history is None:
+                return jsonify([])
+
+            for history in personal_history:
+                result.append(
+                    {"index": history["index"],
+                     "time": history["now"],
+                     "tags": len(history["tags"])})
+
+            return jsonify(result)
 
         self.register_functions()

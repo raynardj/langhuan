@@ -26,7 +26,7 @@
     var color_ct = 0
 
     const create_raw = (d) => {
-        console.log(d)
+        // console.log(d)
         document.querySelector("#raw").innerHTML = d.text
         document.querySelector("#raw").dataset.hl_index = d.index
 
@@ -37,14 +37,16 @@
                     .querySelector("#label_pool")
                     .dataset.option_to_data)
                 var tags = d.record.tags
-                visualize_tags({ option_to_data, tags })
+
+                visualize_tagged({ option_to_data, tags })
             }
         }
+
+        get_history()
     }
 
     const create_controls = (d) => {
         var { option_list, option_to_data } = create_option_list(d.options)
-        document.querySelector("#label_pool").dataset.option_list = JSON.stringify(option_list)
         document.querySelector("#label_pool").dataset.option_to_data = JSON.stringify(option_to_data)
         visualize_options(option_list)
     }
@@ -66,7 +68,6 @@
         }
         return { option_list, option_to_data }
     }
-
 
 
     class NERBlock {
@@ -151,6 +152,23 @@
         }
     }
 
+    const get_history = async () => {
+        var user_id = get_user_id()
+        fetch(`/personal_history?user_id=${user_id}`)
+        .then(res=>res.json())
+        .then(data=>{
+            console.log(data)
+            d3.select("#histories")
+            .selectAll(".history_entry")
+            .data(data)
+            .enter()
+            .append("div")
+            .attr("class","history_entry m-3 p-1 bg-primary text-white")
+            .text(d=>{return d.time})
+        })
+        .catch(console.error)
+    }
+
     const visualize_options = (options) => {
         d3.select("#label_pool").selectAll("span")
             .data(options)
@@ -168,9 +186,14 @@
             .on("click", tag_NER)
     }
 
-    const visualize_tags = (ipt) => {
+    const visualize_tagged = (ipt) => {
+        /* Visualize from
+        Tracked record
         var { tags, option_to_data } = ipt;
-        console.log(tags);
+        tags are the tagged json data
+        */
+        var { tags, option_to_data } = ipt;
+        // console.log(tags);
         var subs = [];
         var ct = 0;
         var raw = document.querySelector("#raw")
@@ -186,7 +209,7 @@
             })
         }
         subs.push({ text: text.substring(ct, text.length) })
-        console.log(subs)
+        // console.log(subs)
 
         raw.innerHTML=""
 
