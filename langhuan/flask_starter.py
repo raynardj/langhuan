@@ -155,9 +155,13 @@ class Progress:
         user_id = data["user_id"]
         personal_history = self.personal_history.get(user_id)
         if type(personal_history) == list:
+            for d in personal_history:
+                if data["index"] == d["index"]:
+                    personal_history.remove(d)
             personal_history.append(data)
             if len(personal_history) > self.history_length:
-                personal_history = personal_history[1:]
+                personal_history = personal_history[
+                    len(personal_history) - self.history_length:]
         else:
             self.personal_history[user_id] = []
             self.update_personal(data)
@@ -412,11 +416,19 @@ class NERTask(LangHuanBaseTask):
                 return jsonify([])
 
             for history in personal_history:
-                result.append(
-                    {"index": history["index"],
-                     "time": history["now"],
-                     "tags": len(history["tags"])})
+                if "skipped" in history:
+                    result.append({
+                        "index": history["index"],
+                        "time": history["now"],
+                        "tags": 0,
+                        "skipped": True,
+                    })
+                else:
+                    result.append(
+                        {"index": history["index"],
+                         "time": history["now"],
+                         "tags": len(history["tags"])})
 
-            return jsonify(result)
+            return jsonify(result[::-1])
 
         self.register_functions()

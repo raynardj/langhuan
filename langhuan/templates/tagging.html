@@ -10,12 +10,12 @@
 
         {%block work_title%}
         <h3 class="m-3">Labeling</h3>
-        
+
         {%endblock%}
         <hr>
 
         {%block controls%}
-                
+
         {%endblock%}
 
         <div id="histories">
@@ -35,7 +35,7 @@
 
                 </div>
                 {%endblock%}
-                
+
             </div>
         </div>
         {%endblock%}
@@ -53,17 +53,15 @@
     const flavors = [
         "primary", "danger", "success", "warning", "dark", "secondary", "info"
     ]
-    var index = {{index}}
+    var index = {{ index }}
 
     const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
-    const get_user_id = () =>{
+    const get_user_id = () => {
         var user_id = localStorage.getItem("lh_user")
-        if(user_id)
-        {
+        if (user_id) {
             return user_id
-        } else
-        {
+        } else {
             user_id = genRanHex(10)
             localStorage.setItem("lh_user", user_id)
             return user_id
@@ -72,33 +70,49 @@
 
     var user_id = get_user_id();
 
-    fetch("/data",{
-        method:"POST",
-        header:{
-            "Content-Type":"application/json"
+    fetch("/data", {
+        method: "POST",
+        header: {
+            "Content-Type": "application/json"
         },
-        body: JSON.stringify({index, user_id: get_user_id()})
-    }).then(res=>res.json())
-    .then(d=>{
-        create_controls(d);
-        create_raw(d);
-    })
-    .catch(console.error)
+        body: JSON.stringify({ index, user_id: get_user_id() })
+    }).then(res => res.json())
+        .then(d => {
+            create_controls(d);
+            create_raw(d);
+
+            if (d.record) {
+                localStorage.setItem("has_record", "true")
+            } else {
+                localStorage.setItem("has_record", "false")
+            }
+            console.log(localStorage.getItem("has_record"))
+        })
+        .catch(console.error)
 
     const skipping = () => {
+        
+        // if already tagged, skipping means not bothering this entry
+        if (localStorage.getItem("has_record")=="true") {
+            window.location = "/"
+            return
+        }
+        // if not tagged yet, skipping means entering empty entry
+        console.log("sending empty")
         var user_id = get_user_id();
         var skipped = true;
         var index = parseInt(document.querySelector("#raw").dataset.hl_index);
+
         fetch("/tagging", {
-            method:"POST",
-            headers:{
+            method: "POST",
+            headers: {
                 'Content-Type': 'application/json'
             },
-            body:JSON.stringify({user_id, index, skipped})
+            body: JSON.stringify({ user_id, index, skipped })
         })
-        .then(res=>res.json())
-        .then(data=>{window.location="/"})
-        .catch(console.error)
+            .then(res => res.json())
+            .then(data => { window.location = "/" })
+            .catch(console.error)
     }
 
     const tagging = (data) => {
@@ -106,16 +120,16 @@
         data.index = parseInt(
             document.querySelector("#raw").dataset.hl_index);
         fetch("/tagging", {
-            method:"POST",
-            headers:{
+            method: "POST",
+            headers: {
                 'Content-Type': 'application/json'
             },
-            body:JSON.stringify(data)
+            body: JSON.stringify(data)
         })
-        .then(res=>res.json())
-        .then(data=>{window.location="/"})
-        .catch(console.error)
+            .then(res => res.json())
+            .then(data => { window.location = "/" })
+            .catch(console.error)
     }
-    
+
 </script>
 {%endblock%}

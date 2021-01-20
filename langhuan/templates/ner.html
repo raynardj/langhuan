@@ -73,7 +73,7 @@
     class NERBlock {
         constructor(d) {
             this.node = document.createElement("span");
-            this.node.className = `bg-${d.flavor} text-white p-2`;
+            this.node.className = `bg-${d.flavor} text-white p-2 ner_tag`;
             this.node.style = "border-radius:3px";
             this.node.datasets = d;
             this.node.title = d.label;
@@ -163,8 +163,12 @@
             .data(data)
             .enter()
             .append("div")
-            .attr("class","history_entry m-3 p-1 bg-primary text-white")
-            .text(d=>{return d.time})
+            .attr("class",
+            "history_entry m-3 pt-1 pb-1 pl-3 pr-3 border border-primary rounded-pill border-3 border-top-0 border-bottom-0")
+            .text(d=>{return `${d.time.substring(9,17)} (${d.tags}x🏷)`})
+            .on("click", (e, data) => {
+                window.location = `/?index=${data.index}`
+            })
         })
         .catch(console.error)
     }
