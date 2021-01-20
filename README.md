@@ -3,7 +3,13 @@
 
 > From Chinese word **琅嬛[langhuan]** (Legendary realm where god curates books)
 
+## Installation
+```shell
+pip install langhuan
+```
+
 ## Minimun configuration walk through
+> Simplest configuration for NER task
 
 ```python
 from langhuan import NERTask
