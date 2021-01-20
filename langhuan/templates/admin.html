@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{%block head_js%}
+{{super()}}
+<script defer src="/static/js/all.js"></script>
+{%endblock%}
+{%block title%}
+<title>Admin - Langhuan</title>
+{%endblock%}
+
+{%block content%}
+<div class="row p-3 pl-5 pr-5">
+    <h2 class="col-sm-12 mb-2">
+        Admin: <strong>Lang</strong><span class='text-warning'>Hu</span><span class='text-danger'>an</span>
+    </h2>
+
+    <div class="col-sm-6 p-3">
+        <h3>Progress</h3>
+    </div>
+
+    <div class="col-sm-6 p-3">
+        <h3>Label Options</h3>
+        <div class="input-group">
+            <input type="text" id="add_option" class="form-control">
+            <button class="btn btn-primary " id="add_option_btn">
+                <i class="fas fa-plus-square"></i>
+            </button>
+        </div>
+
+        <div id="options" class="row">
+
+        </div>
+
+    </div>
+</div>
+
+{%endblock%}
+
+
+{%block tail_js%}
+{{super()}}
+
+<script defer>
+    const flavors = [
+        "primary", "danger", "success", "warning", "dark", "secondary", "info"
+    ]
+
+    const get_param = (k) => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const param = urlParams.get(k);
+        return param
+    }
+
+    const add_option = async (e) => {
+        var option = document.querySelector("#add_option").value
+
+        if (option == "") {
+            console.error("option not set")
+            return
+        } else {
+            var admin_key = get_param("adminkey")
+            var dt = { option }
+            if (admin_key) {
+                dt.adminkey = admin_key
+            }
+            fetch("/add_option",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(dt)
+                }
+            ).then(res => res.json())
+                .then(data => {
+                    if (data.option == option) {
+                        location.reload()
+                    }
+                }).catch(console.error)
+        }
+    }
+
+    const delete_option = async (e, option) => {
+        console.log(option)
+
+        var admin_key = get_param("adminkey")
+        var dt = { option }
+        if (admin_key) {
+            dt.adminkey = admin_key
+        }
+        fetch("/delete_option",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(dt)
+            }
+        ).then(res => res.json())
+            .then(data => {
+                if (data.option == option) {
+                    location.reload()
+                }
+            }).catch(console.error)
+    }
+
+    const visualize_options = (options) => {
+
+        console.log(options)
+        var op_box = d3.select("#options")
+            .selectAll("div").data(options)
+            .enter().append("div")
+
+        op_box
+            .attr("class", "col-sm-12 m-1")
+
+        var del_btns = op_box.append("button")
+            .attr("class", "btn btn-danger btn-sm")
+            .on("click", delete_option)
+
+        del_btns
+            .append("i")
+            .attr("class", "fas fa-backspace")
+
+        op_box.append("span").attr("class", "p-2").text(d => { return d })
+
+    }
+
+    const set_options = async () => {
+        const admin_key = get_param("adminkey")
+        var input_data = admin_key ? { adminkey: admin_key } : {}
+        fetch("/get_options", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(input_data)
+        })
+            .then(res => res.json())
+            .then(visualize_options)
+            .catch(console.error)
+    }
+
+    set_options()
+
+    document.querySelector("#add_option_btn").addEventListener("click", add_option)
+</script>
+{%endblock%}

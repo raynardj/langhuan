@@ -9,6 +9,7 @@ import numpy as np
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
+from uuid import uuid4
 
 
 def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
@@ -49,7 +50,7 @@ class Options(object):
             options = []
         # when options => a list of options
         if type(options) in [list, set]:
-            self.option_col = [list(options), ] * len(df)
+            self.option_vals = [list(options), ] * len(df)
             self.known_options = list(set(options))
 
         # when options => a name of df column
@@ -57,8 +58,8 @@ class Options(object):
             assert options in df,\
                 f"when options set to string, it has to be one of {df.columns}"
 
-            self.option_col = df[options]
-            self.known_options = self.calc_known_options(self.option_col)
+            self.option_vals = df[options]
+            self.known_options = self.calc_known_options(self.option_vals)
         else:
             raise TypeError(
                 f"""
@@ -69,7 +70,9 @@ class Options(object):
         self.df_idx = df.index
 
         self.df = pd.DataFrame(
-            dict(options=self.option_col, idx=self.df_idx))
+            dict(options=self.option_vals, idx=self.df_idx))
+
+        self.option_col = self.df["options"]
         self.df.set_index("idx")
 
     def __len__(self): return len(self.df)
@@ -84,6 +87,43 @@ class Options(object):
     def __getitem__(self, idx):
         options = dict(self.df.loc[idx])["options"]
         return options
+
+    def new_for_option_col(self, option):
+        def new_for_option_col_(x):
+            if option in x:
+                return x
+            else:
+                x.append(option)
+                return x
+        return new_for_option_col_
+
+    def delete_for_option_col(self, option):
+        def delete_for_option_col_(x):
+            if option in x:
+                x.remove(option)
+                return x
+            else:
+                return x
+        return delete_for_option_col_
+
+    def add_option(self, option: str):
+        if option not in self.known_options:
+            self.known_options.append(option)
+
+        self.option_col = self.option_col.apply(
+            self.new_for_option_col(option)
+        )
+
+        return self.known_options
+
+    def delete_option(self, option: str):
+        if option in self.known_options:
+            self.known_options.remove(option)
+        self.option_col = self.option_col.apply(
+            self.delete_for_option_col(option)
+        )
+
+        return self.known_options
 
 
 def get_root():
@@ -181,6 +221,7 @@ class LangHuanBaseTask(Flask):
         order_strategy: Union[str, Callable] = "forward_march",
         order_by_column: str = None,
         cross_verify_num: int = 1,
+        admin_control: bool = False,
     ):
         app_name = cls.create_task_name(task_name, cls.task_type)
         app = cls(
@@ -188,6 +229,13 @@ class LangHuanBaseTask(Flask):
             static_folder=str(get_root()/"static"),
             template_folder=str(get_root()/"templates")
         )
+        app.admin_control = admin_control
+        if app.admin_control:
+            app.admin_key = str(uuid4())
+
+        logging.getLogger().setLevel(logging.INFO)
+        logging.info(
+            f"please visit admin page:/admin?adminkey={app.admin_key}")
 
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         HyperFlask(app)
@@ -311,6 +359,19 @@ class LangHuanBaseTask(Flask):
         return NotImplementedError(
             "LangHuanBaseTask.register() should be over writen")
 
+    def admin_access(self, f: Callable):
+        def wrapper():
+            if self.admin_control:
+                admin_key = arg_by_key("adminkey")
+                if admin_key is None:
+                    return "<h3>please provide adminkey</h3>", 403
+                if admin_key == self.admin_key:
+                    return f()
+                else:
+                    return "<h3>'adminkey' not correct</h3>", 403
+        wrapper.__name__ = f.__name__
+        return wrapper
+
     def register_functions(self):
         """
         register the custom decorated route functions
@@ -371,6 +432,30 @@ class LangHuanBaseTask(Flask):
             return jsonify(
                 dict((k, v) for k, v in self.progress.depth.items()
                      if len(v) > 0))
+
+        @self.route("/get_options", methods=["POST", "GET"])
+        @self.admin_access
+        def get_options():
+            return jsonify(self.options.known_options)
+
+        @self.route("/add_option", methods=["POST", "GET"])
+        @self.admin_access
+        def add_option():
+            option = arg_by_key("option")
+            self.options.add_option(option)
+            return jsonify({"option": option})
+
+        @self.route("/delete_option", methods=["POST", "GET"])
+        @self.admin_access
+        def delete_option():
+            option = arg_by_key("option")
+            self.options.delete_option(option)
+            return jsonify({"option": option})
+
+        @self.route("/admin")
+        @self.admin_access
+        def admin():
+            return render_template("admin.html")
 
 
 class NERTask(LangHuanBaseTask):
