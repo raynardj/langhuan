@@ -404,13 +404,19 @@ class NERTask(LangHuanBaseTask):
             """
             return the result as a big json string
             """
-            return jsonify(self.progress.depth)
+            result = dict(
+                data=dict((k, v) for k, v in
+                          self.progress.depth.items() if len(v) > 0),
+                text_col=self.text_col,
+                options=self.options.known_options,
+            )
+            return jsonify(result)
 
         @self.route("/personal_history")
         def personal_history():
             user_id = arg_by_key("user_id")
             result = []
-            personal_history = self.progress.personal_history[user_id]
+            personal_history = self.progress.personal_history.get(user_id)
 
             if personal_history is None:
                 return jsonify([])
