@@ -234,8 +234,9 @@ class LangHuanBaseTask(Flask):
             app.admin_key = str(uuid4())
 
         logging.getLogger().setLevel(logging.INFO)
-        logging.info(
-            f"please visit admin page:/admin?adminkey={app.admin_key}")
+        if app.admin_control:
+            logging.info(
+                f"please visit admin page:/admin?adminkey={app.admin_key}")
 
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         HyperFlask(app)
