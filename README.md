@@ -14,5 +14,14 @@ pip install langhuan
 ```python
 from langhuan import NERTask
 app = NERTask.from_df(df, text_col="text", options=["institution", "company", "name"])
-app.run("0.0.0.0")
+app.run("0.0.0.0", port=5000)
 ```
+
+## Frontend
+> You can visit following pages for this app
+
+### Tagging
+```/```
+
+### Admin
+```/admin```

@@ -9,8 +9,17 @@
     <div class="col-sm-3 p-e">
 
         {%block work_title%}
-        <h3 class="m-3">Labeling</h3>
+        <h3 class="m-3">
+            <strong>Lang</strong><span class='text-warning'>Hu</span><span class='text-danger'>an</span>
+        </h3>
+        <div class="m-3 p-2 text-white bg-secondary rounded text-center">
+            <i class="fas fa-user">
 
+            </i>
+            <span id="user_id">
+
+            </span>
+        </div>
         {%endblock%}
         <hr>
 
@@ -69,6 +78,7 @@
     }
 
     var user_id = get_user_id();
+    document.querySelector('#user_id').innerHTML=user_id
 
     fetch("/data", {
         method: "POST",

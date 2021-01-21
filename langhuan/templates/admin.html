@@ -1,8 +1,4 @@
 {% extends "base.html" %}
-{%block head_js%}
-{{super()}}
-<script defer src="/static/js/all.js"></script>
-{%endblock%}
 {%block title%}
 <title>Admin - Langhuan</title>
 {%endblock%}
@@ -15,22 +11,38 @@
 
     <div class="col-sm-6 p-3">
         <h3>Progress</h3>
+        
         <div class="row">
             <div class="btn-group">
                 <a href="/result" class="btn-primary btn btn-sm" download="langhuan_result.json">
                     <i class="fas fa-download">
-    
+
                     </i>
                     Download as JSON</a>
-    
-                <button class="btn btn-sm btn-warning">
+
+                <button class="btn btn-sm btn-warning" id="force_save">
                     <i class="fas fa-save">
-    
+
                     </i>
                     Force Save
                 </button>
             </div>
-            
+
+        </div>
+        <div class="row">
+            <table class="table">
+                <tr>
+                    <th>
+                        Total Proccessed
+                    </th>
+                    <td id="total_processed">
+                        0
+                    </td>
+                </tr>
+            </table>
+            <div id="stats_by_user">
+
+            </div>
         </div>
     </div>
 
@@ -122,7 +134,6 @@
 
     const visualize_options = (options) => {
 
-        console.log(options)
         var op_box = d3.select("#options")
             .selectAll("div").data(options)
             .enter().append("div")
@@ -142,22 +153,79 @@
 
     }
 
-    const set_options = async () => {
-        const admin_key = get_param("adminkey")
-        var input_data = admin_key ? { adminkey: admin_key } : {}
-        fetch("/get_options", {
+    const admin_post = (url, resolve, error_handler) => {
+        var admin_key = get_param("adminkey")
+        var data = {}
+        if (admin_key) { data.adminkey = admin_key }
+        fetch(url, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(input_data)
-        })
-            .then(res => res.json())
-            .then(visualize_options)
-            .catch(console.error)
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        }).then(res => res.json())
+            .then(resolve)
+            .catch(error_handler)
     }
 
+    const set_options = async () => {
+        admin_post("/get_options",
+            visualize_options,
+            console.error
+        )
+    }
+
+    const save_progress = async (e, d) => {
+        admin_post(
+            "/save_progress",
+            d => {
+                document.querySelector("#total_processed")
+                    .innerHTML = d.so_far
+            },
+            console.error
+        )
+    }
+
+    document.querySelector('#force_save')
+        .addEventListener("click", save_progress)
+
+    const stats_by_user = async () => {
+        admin_post(
+            "/stats",
+            by_user => {
+                var data = []
+                var total_entries = 0;
+                for(var user_id in by_user){
+                    data.push({...by_user[user_id], user_id})
+                    total_entries+=by_user[user_id].entry_ct
+                }
+                document.querySelector("#total_processed")
+                    .innerText = total_entries
+
+                var user_block = d3.select("#stats_by_user")
+                .selectAll("div")
+                .attr("class", "user_block")
+                .data(data).enter().append("div")
+
+                user_block.append("h6").text(d=>{
+                    return `Summary of user: ${d.user_id}`
+                })
+
+                var user_table = user_block.append("table")
+                .attr("class","table")
+
+                var user_entry_row = user_table.append("tr")
+                user_entry_row.append("th").text("User Entries")
+                user_entry_row.append("td").text(d=>d.entry_ct)
+
+                var user_skipped_row = user_table.append("tr")
+                user_skipped_row.append("th").text("Sipped Entries")
+                user_skipped_row.append("td").text(d=>d.skip_ct)
+            
+            },
+            console.error
+        )
+    }
     set_options()
+    stats_by_user()
 
     document.querySelector("#add_option_btn").addEventListener("click", add_option)
 </script>

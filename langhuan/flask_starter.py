@@ -1,216 +1,18 @@
+from .hyperflask import HyperFlask
+from .history import History
+from .options import Options
+from .utility import now_str, now_specific, cleanup_tags,\
+    arg_by_key
+from .order_strategies import OrderStrategies
+
 from flask import Flask, request, jsonify
 from flask.templating import render_template
-from .hyperflask import HyperFlask
-
 import logging
 import json
-import os
-
-from typing import List, Union, Callable, Dict
 import pandas as pd
-from datetime import datetime
-from itertools import chain
+from typing import List, Union, Callable
 from pathlib import Path
 from uuid import uuid4
-
-
-class History:
-    """
-    History log handler
-    """
-
-    def __init__(
-        self,
-        task_name: str,
-        load_history: bool = False,
-        save_frequency: int = 42,
-    ):
-        """
-        task_name: str, name of the task
-            if $HOME/.cache/langhuan/{task_name} exist
-        """
-        self.task_name = task_name
-        self.load_history = load_history
-        self.save_frequency = save_frequency
-        self.home = Path(os.environ["HOME"])
-        self.history = []
-        self.history_save_mark = 0
-        self.batcher = 0
-
-        self.cache = self.home / ".cache"
-        self.cache.mkdir(exist_ok=True)
-
-        self.langhuan = self.cache / "langhuan"
-        self.langhuan.mkdir(exist_ok=True)
-
-        self.task = self.langhuan / task_name
-
-        if self.load_history:
-            if self.task.exists():
-                self.history = self.read_all_history()
-            else:
-                logging.error(
-                    f"no history under {self.task}")
-                logging.error(
-                    "you can try changing the task_name"
-                )
-                tasks = os.listdir(self.langhuan)
-                logging.error(
-                    f"valid task names:\n{tasks}"
-                )
-        self.task.mkdir(exist_ok=True)
-
-    def __repr__(self):
-        return f"CacheFolder:\t{self.task}"
-
-    def save_new_history(self):
-        to_save = self.history[self.history_save_mark:]
-        self.history_save_mark += len(to_save)
-        with open(self.task/f"history_{now_str()}.json", "w") as f:
-            f.write(json.dumps(to_save))
-
-    def read_all_history(self):
-        """
-        read the saved history from self.task
-        """
-        history_data = []
-        files = os.listdir(self.task)
-
-        if len(files) > 200:
-            logging.info(f"Loading {len(files)} cache files")
-            logging.info("Please wait patiently")
-
-        for js in files:
-            if "history_" in js:
-                with open(self.task / js, "r") as f:
-                    history_data += json.loads(f.read())
-
-        return history_data
-
-    def __add__(self, x: Dict[str, str]):
-        """
-        Entrying new data
-        """
-        self.history.append(x)
-        self.batcher += 1
-        if self.batcher % self.save_frequency == 0:
-            self.save_new_history()
-        return self.history
-
-
-def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
-
-
-def now_specific():
-    return datetime.now().strftime("%y-%m-%d_%H:%M:%S")
-
-
-def cleanup_tags(x: str) -> str:
-    """
-    remove the string that will break the frontend
-    x: str, input string
-    """
-    return x.replace("<", "◀️").replace(">", "▶️")
-
-
-def arg_by_key(key: str) -> Union[str, int, float]:
-    """
-    get a value either by GET or POST method
-    with api function
-    """
-    if request.method == "POST":
-        data = json.loads(request.data)
-        rt = data[key]
-    elif request.method == "GET":
-        rt = request.args.get(key)
-    else:
-        raise RuntimeError(
-            "method has to be GET or POST")
-    return rt
-
-
-class Options(object):
-    def __init__(
-            self,
-            df: pd.DataFrame, options,):
-        if options is None:
-            options = []
-        # when options => a list of options
-        if type(options) in [list, set]:
-            self.option_vals = [list(options), ] * len(df)
-            self.known_options = list(set(options))
-
-        # when options => a name of df column
-        elif type(options) == str:
-            assert options in df,\
-                f"when options set to string, it has to be one of {df.columns}"
-
-            self.option_vals = df[options]
-            self.known_options = self.calc_known_options(self.option_vals)
-        else:
-            raise TypeError(
-                f"""
-        options type has to be one of 'list, str',
-        yours: {type(options)}
-        """)
-
-        self.df_idx = df.index
-
-        self.df = pd.DataFrame(
-            dict(options=self.option_vals, idx=self.df_idx))
-
-        self.option_col = self.df["options"]
-        self.df.set_index("idx")
-
-    def __len__(self): return len(self.df)
-
-    def __repr__(self):
-        return f"options:{self.known_options}"
-
-    @staticmethod
-    def calc_known_options(iterable):
-        return list(set(list(chain(*list(iterable)))))
-
-    def __getitem__(self, idx):
-        options = dict(self.df.loc[idx])["options"]
-        return options
-
-    def new_for_option_col(self, option):
-        def new_for_option_col_(x):
-            if option in x:
-                return x
-            else:
-                x.append(option)
-                return x
-        return new_for_option_col_
-
-    def delete_for_option_col(self, option):
-        def delete_for_option_col_(x):
-            if option in x:
-                x.remove(option)
-                return x
-            else:
-                return x
-        return delete_for_option_col_
-
-    def add_option(self, option: str):
-        if option not in self.known_options:
-            self.known_options.append(option)
-
-        self.option_col = self.option_col.apply(
-            self.new_for_option_col(option)
-        )
-
-        return self.known_options
-
-    def delete_option(self, option: str):
-        if option in self.known_options:
-            self.known_options.remove(option)
-        self.option_col = self.option_col.apply(
-            self.delete_for_option_col(option)
-        )
-
-        return self.known_options
 
 
 def get_root() -> Path:
@@ -235,6 +37,7 @@ class Progress:
         self.history_length = history_length
         self.v_num = cross_verify_num
         self.ct = 0
+        self.user_ct = dict()
         self.depth = dict((i, dict()) for i in range(len(progress_list)))
         self.personal_history = dict()
         self.idx_to_index = dict((v, k) for k, v in enumerate(progress_list))
@@ -251,30 +54,40 @@ class Progress:
         """
         if self.ct >= len(self.progress_list):
             raise StopIteration("Task done")
-
-        if len(self.depth[self.ct]) >= self.v_num:
-            self.ct += 1
-            return self.next_id(user_id)
-
-        elif len(self.depth[self.ct]) +\
-            len(list(filter(
-                lambda x: x == self.ct,
-                self.by_user_wip.values()))) >= self.v_num:
-            self.ct += 1
-            return self.next_id(user_id)
-
         else:
-            self.by_user_wip[user_id] = self.ct
-            return self.ct
+            if self.user_ct.get(user_id) is None:
+                self.user_ct[user_id] = self.ct
+            if self.user_ct[user_id] > self.ct:
+                index = self.user_ct[user_id]
+            else:
+                index = self.ct
+
+            self.by_user_wip[user_id] = index
+            return index
 
     def tagging(self, data):
         index = data["index"]
         user_id = data["user_id"]
         # recover the pandas index
         self.depth[index][user_id] = data
-        self.update_personal(data)
         if user_id in self.by_user_wip:
             del self.by_user_wip[user_id]
+        self.move_ct(user_id, index)
+        self.update_personal(data)
+
+    def move_ct(self, user_id, index):
+        if index == self.ct:
+            if len(self.depth[index]) >= self.v_num:
+                self.ct += 1
+            elif len(self.depth[self.ct]) +\
+                len(list(filter(
+                    lambda x: x == self.ct,
+                    self.by_user_wip.values()))) >= self.v_num:
+                self.ct += 1
+            else:
+                self.user_ct[user_id] += 1
+        elif index > self.ct:
+            self.user_ct[user_id] = index+1
 
     def update_personal(self, data):
         """
@@ -295,7 +108,7 @@ class Progress:
             self.update_personal(data)
 
 
-class LangHuanBaseTask(Flask):
+class LangHuanBaseTask(Flask, OrderStrategies):
     task_type = None
 
     @classmethod
@@ -313,6 +126,7 @@ class LangHuanBaseTask(Flask):
         admin_control: bool = False,
     ):
         """
+        Load an flask app from pandas dataframe
         Input columns:
 
         - text_col: str, column name that contains raw data
@@ -321,6 +135,21 @@ class LangHuanBaseTask(Flask):
             None and configure it on /admin page later
         - load_history: bool = False, load the saved history if True
         - task_name: str, name of your task, if not provided
+        - order_strategy: Union[str, Callable] = "forward_march",
+            a function defining how progress move one by one. As a
+            the function will produce a list of pandas index as
+            correct order.
+            Some known strategies are available(as you can just use
+            the name of the strategy), start and end are ordered
+            according to the value of order_by_column:
+            - forward_march:
+                honest to the earth start to end
+            - pincer: move 1 by 1 both from start and from end.
+            - trident: move 1 by 1 from start, from end and from
+                the middle.
+        - order_by_column: str = None, set order_by_column, a
+            dataframe column name, for order_strategy. "forward_match"
+            strategy does not require this info.
         - cross_verify_num: int = 1, this number decides how many
             people should see to one entry at least
         - admin_control: bool = False, if True you have to
@@ -354,7 +183,10 @@ class LangHuanBaseTask(Flask):
         HyperFlask(app)
 
         app.register(df, text_col, Options(df, options))
-        app.create_progress(order_strategy, order_by_column, cross_verify_num)
+        app.create_progress(
+            order_strategy,
+            order_by_column,
+            cross_verify_num=cross_verify_num)
 
         if load_history:
             # loading the history to progress
@@ -362,71 +194,6 @@ class LangHuanBaseTask(Flask):
                 for data in app.task_history.history:
                     app.progress.tagging(data)
         return app
-
-    def forward_march(self, **kwargs) -> List[int]:
-        return list(self.df.index)
-
-    def mix_streams(self, *streams):
-        if len(streams) == 0:
-            return []
-        elif len(streams) == 1:
-            return list(streams[0])
-
-        min_length = min(list(map(len, streams)))
-        combined = []
-        for i in range(min_length):
-            for stream in streams:
-                combined.append(stream[i])
-
-        combined += self.mix_streams(*list(
-            stream[min_length:] for stream in streams
-            if stream[min_length:] > 0))
-
-        return combined
-
-    def pincer(self, **kwargs) -> List[int]:
-        order_by_column = kwargs.get("order_by_column")
-        if order_by_column is None:
-            raise KeyError(
-                "you have to set 'order_by_column' " +
-                "when using pincer strategy, " +
-                "preferably a score between 0 ~ 1"
-            )
-
-        ordered_idx = list(
-            self.df.sort_values(by=[order_by_column, ]).index)
-
-        mid_point = len(ordered_idx)//2
-        return self.mix_streams(
-            ordered_idx[:mid_point], ordered_idx[mid_point:][::-1])
-
-    def trident(self, **kwargs) -> List[int]:
-        order_by_column = kwargs.get("order_by_column")
-        if order_by_column is None:
-            raise KeyError(
-                "you have to set 'order_by_column' " +
-                "when using trident strategy, " +
-                "preferably a score between 0 ~ 1"
-            )
-
-        mid_score = self.df[order_by_column].min() +\
-            (self.df[order_by_column].max() -
-             self.df[order_by_column].min())/2
-
-        sorted_df = self.df.sort_values(by=[order_by_column, ])
-
-        bigger = sorted_df.query(f"{order_by_column}>={mid_score}")
-        smaller = sorted_df.query(f"{order_by_column}<{mid_score}")
-
-        bigger_mid_point = len(bigger)//2
-        smaller_mid_point = len(smaller)//2
-
-        return self.mix_streams(
-            list(bigger.index)[:bigger_mid_point],
-            list(bigger.index)[bigger_mid_point:][::-1],
-            list(smaller.index)[:smaller_mid_point],
-            list(smaller.index)[smaller_mid_point:][::-1],
-        )
 
     def create_progress(
         self,
@@ -498,8 +265,8 @@ class LangHuanBaseTask(Flask):
 
         this function is intended to be used as decorator
         """
-        def wrapper():
-            if self.admin_control:
+        if self.admin_control:
+            def wrapper():
                 admin_key = arg_by_key("adminkey")
                 if admin_key is None:
                     return "<h3>please provide adminkey</h3>", 403
@@ -507,8 +274,10 @@ class LangHuanBaseTask(Flask):
                     return f()
                 else:
                     return "<h3>'adminkey' not correct</h3>", 403
-        wrapper.__name__ = f.__name__
-        return wrapper
+            wrapper.__name__ = f.__name__
+            return wrapper
+        else:
+            return f
 
     def register_functions(self):
         """
@@ -599,12 +368,12 @@ class LangHuanBaseTask(Flask):
                 skipped=[],
             )
             by_user = dict((u, empety) for u in user_ids)
-            for index, data in self.progress.depth.items():
-                user_id = data["user_id"]
-                index = data["index"]
-                by_user[user_id]["entries"].append(index)
-                if "skipped" in data:
-                    by_user[user_id]["skipped"].append(index)
+            for index, user_entry in self.progress.depth.items():
+                for user_id, data in user_entry.items():
+                    index = data["index"]
+                    by_user[user_id]["entries"].append(index)
+                    if "skipped" in data:
+                        by_user[user_id]["skipped"].append(index)
             for user_id, v in by_user.items():
                 v["entry_ct"] = len(set(v["entries"]))
                 v["skip_ct"] = len(set(v["skipped"]))
@@ -680,7 +449,7 @@ class NERTask(LangHuanBaseTask):
             return the result as a big json string
             """
             result = dict(
-                data=dict((k, v) for k, v in
+                data=dict((k, list(d for u, d in v.items())) for k, v in
                           self.progress.depth.items() if len(v) > 0),
                 text_col=self.text_col,
                 options=self.options.known_options,
