@@ -1,24 +1,115 @@
 from flask import Flask, request, jsonify
-from .hyperflask import HyperFlask
 from flask.templating import render_template
+from .hyperflask import HyperFlask
+
 import logging
-from typing import List, Union, Callable
 import json
+import os
+
+from typing import List, Union, Callable, Dict
 import pandas as pd
-import numpy as np
 from datetime import datetime
 from itertools import chain
 from pathlib import Path
 from uuid import uuid4
 
 
+class History:
+    """
+    History log handler
+    """
+
+    def __init__(
+        self,
+        task_name: str,
+        load_history: bool = False,
+        save_frequency: int = 42,
+    ):
+        """
+        task_name: str, name of the task
+            if $HOME/.cache/langhuan/{task_name} exist
+        """
+        self.task_name = task_name
+        self.load_history = load_history
+        self.save_frequency = save_frequency
+        self.home = Path(os.environ["HOME"])
+        self.history = []
+        self.history_save_mark = 0
+        self.batcher = 0
+
+        self.cache = self.home / ".cache"
+        self.cache.mkdir(exist_ok=True)
+
+        self.langhuan = self.cache / "langhuan"
+        self.langhuan.mkdir(exist_ok=True)
+
+        self.task = self.langhuan / task_name
+
+        if self.load_history:
+            if self.task.exists():
+                self.history = self.read_all_history()
+            else:
+                logging.error(
+                    f"no history under {self.task}")
+                logging.error(
+                    "you can try changing the task_name"
+                )
+                tasks = os.listdir(self.langhuan)
+                logging.error(
+                    f"valid task names:\n{tasks}"
+                )
+        self.task.mkdir(exist_ok=True)
+
+    def __repr__(self):
+        return f"CacheFolder:\t{self.task}"
+
+    def save_new_history(self):
+        to_save = self.history[self.history_save_mark:]
+        self.history_save_mark += len(to_save)
+        with open(self.task/f"history_{now_str()}.json", "w") as f:
+            f.write(json.dumps(to_save))
+
+    def read_all_history(self):
+        """
+        read the saved history from self.task
+        """
+        history_data = []
+        files = os.listdir(self.task)
+
+        if len(files) > 200:
+            logging.info(f"Loading {len(files)} cache files")
+            logging.info("Please wait patiently")
+
+        for js in files:
+            if "history_" in js:
+                with open(self.task / js, "r") as f:
+                    history_data += json.loads(f.read())
+
+        return history_data
+
+    def __add__(self, x: Dict[str, str]):
+        """
+        Entrying new data
+        """
+        self.history.append(x)
+        self.batcher += 1
+        if self.batcher % self.save_frequency == 0:
+            self.save_new_history()
+        return self.history
+
+
 def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
 
 
-def now_specific(): return datetime.now().strftime("%y-%m-%d_%H:%M:%S")
+def now_specific():
+    return datetime.now().strftime("%y-%m-%d_%H:%M:%S")
 
 
-def cleanup_tags(x):
+def cleanup_tags(x: str) -> str:
+    """
+    remove the string that will break the frontend
+    x: str, input string
+    """
     return x.replace("<", "◀️").replace(">", "▶️")
 
 
@@ -36,10 +127,6 @@ def arg_by_key(key: str) -> Union[str, int, float]:
         raise RuntimeError(
             "method has to be GET or POST")
     return rt
-
-
-tagged = dict()
-history = list()
 
 
 class Options(object):
@@ -126,7 +213,7 @@ class Options(object):
         return self.known_options
 
 
-def get_root():
+def get_root() -> Path:
     return Path(__file__).parent.absolute()
 
 
@@ -181,8 +268,9 @@ class Progress:
             return self.ct
 
     def tagging(self, data):
-        index = arg_by_key("index")
+        index = data["index"]
         user_id = data["user_id"]
+        # recover the pandas index
         self.depth[index][user_id] = data
         self.update_personal(data)
         if user_id in self.by_user_wip:
@@ -214,26 +302,50 @@ class LangHuanBaseTask(Flask):
     def from_df(
         cls,
         df: pd.DataFrame,
-        text_col: Union[List[str], str],
+        text_col: str,
         task_name: str = None,
         options: List[str] = None,
-        app_name: str = "LangHuan",
+        load_history: bool = False,
+        save_frequency: int = 42,
         order_strategy: Union[str, Callable] = "forward_march",
         order_by_column: str = None,
         cross_verify_num: int = 1,
         admin_control: bool = False,
     ):
+        """
+        Input columns:
+
+        - text_col: str, column name that contains raw data
+        - options: List[str] = None, a list of string options
+            you don't even have to decide this now, you can input
+            None and configure it on /admin page later
+        - load_history: bool = False, load the saved history if True
+        - task_name: str, name of your task, if not provided
+        - cross_verify_num: int = 1, this number decides how many
+            people should see to one entry at least
+        - admin_control: bool = False, if True you have to
+            set adminkey as query string or post data when visit
+            admin related sites
+        """
         app_name = cls.create_task_name(task_name, cls.task_type)
+
+        logging.getLogger().setLevel(logging.INFO)
         app = cls(
             app_name,
             static_folder=str(get_root()/"static"),
             template_folder=str(get_root()/"templates")
         )
+
+        app.task_history = History(
+            app_name,
+            load_history=load_history,
+            save_frequency=save_frequency,
+        )
+
         app.admin_control = admin_control
         if app.admin_control:
             app.admin_key = str(uuid4())
 
-        logging.getLogger().setLevel(logging.INFO)
         if app.admin_control:
             logging.info(
                 f"please visit admin page:/admin?adminkey={app.admin_key}")
@@ -244,6 +356,11 @@ class LangHuanBaseTask(Flask):
         app.register(df, text_col, Options(df, options))
         app.create_progress(order_strategy, order_by_column, cross_verify_num)
 
+        if load_history:
+            # loading the history to progress
+            if len(app.task_history.history) > 0:
+                for data in app.task_history.history:
+                    app.progress.tagging(data)
         return app
 
     def forward_march(self, **kwargs) -> List[int]:
@@ -344,23 +461,43 @@ class LangHuanBaseTask(Flask):
         return task_name if task_name else f"task_{task_type}_{now_str()}"
 
     def log_skip(self, user_id):
+        """
+        try to see if the user is working on some other entry
+            if do, log the skipped
+        """
         if user_id in self.progress.by_user_wip:
-            history.append(
+            index = self.progress.by_user_wip[user_id]
+            logging.info(
+                f"user: [{user_id}] skipping {index}")
+            self.task_history +\
                 dict(
-                    index=self.progress.by_user_wip[user_id],
-                    user_id=user_id))
+                    index=index,
+                    user_id=user_id)
             del self.progress.by_user_wip[user_id]
 
     def register(
         self,
         df: pd.DataFrame,
-        text_col: Union[List[str], str],
+        text_col: str,
         options: List[str],
     ) -> None:
         return NotImplementedError(
             "LangHuanBaseTask.register() should be over writen")
 
-    def admin_access(self, f: Callable):
+    def admin_access(self, f: Callable) -> Callable:
+        """
+        simple access control
+        you can access the GET url by passing query string
+            by key: adminkey
+        you can access the POST url by passing data
+            by key: adminkey
+
+        adminkey can be obtained in console
+            when first initiated,
+            or print out app.admin_key
+
+        this function is intended to be used as decorator
+        """
         def wrapper():
             if self.admin_control:
                 admin_key = arg_by_key("adminkey")
@@ -405,9 +542,13 @@ class LangHuanBaseTask(Flask):
         def tagging():
             remote_addr = request.remote_addr
             data = json.loads(request.data)
-            data.update({"remote_addr": remote_addr, "now": now_specific()})
+            data.update({
+                "remote_addr": remote_addr,
+                "now": now_specific(),
+                "pandas": self.progress[data["index"]]
+            })
             self.progress.tagging(data)
-            history.append(data)
+            self.task_history + data
             return jsonify({"index": data["index"]}), 200
 
         @self.route("/latest", methods=["POST", "GET"])
@@ -417,7 +558,14 @@ class LangHuanBaseTask(Flask):
                 n = data["n"] if "n" in data else 20
             else:
                 n = 20
-            return jsonify(history[-n:][::-1])
+            return jsonify(self.task_history.history[-n:][::-1])
+
+        @self.route("/save_progress", methods=["GET", "POST"])
+        def save_progress():
+            self.task_history.save_new_history()
+            return jsonify(
+                {"so_far": self.task_history.history_save_mark}
+            )
 
         @self.route("/monitor", methods=["POST", "GET"])
         def monitor():
@@ -439,9 +587,39 @@ class LangHuanBaseTask(Flask):
         def get_options():
             return jsonify(self.options.known_options)
 
+        @self.route("/stats", methods=["POST", "GET"])
+        @self.admin_access
+        def get_stats():
+            """
+            get by user statistics
+            """
+            user_ids = list(self.progress.personal_history.keys())
+            empety = dict(
+                entries=[],
+                skipped=[],
+            )
+            by_user = dict((u, empety) for u in user_ids)
+            for index, data in self.progress.depth.items():
+                user_id = data["user_id"]
+                index = data["index"]
+                by_user[user_id]["entries"].append(index)
+                if "skipped" in data:
+                    by_user[user_id]["skipped"].append(index)
+            for user_id, v in by_user.items():
+                v["entry_ct"] = len(set(v["entries"]))
+                v["skip_ct"] = len(set(v["skipped"]))
+                del v["entries"]
+                del v["skipped"]
+            return jsonify(by_user)
+
         @self.route("/add_option", methods=["POST", "GET"])
         @self.admin_access
         def add_option():
+            """
+            add a new tagging option
+            Input:
+            - option: str
+            """
             option = arg_by_key("option")
             self.options.add_option(option)
             return jsonify({"option": option})
@@ -449,6 +627,11 @@ class LangHuanBaseTask(Flask):
         @self.route("/delete_option", methods=["POST", "GET"])
         @self.admin_access
         def delete_option():
+            """
+            delete an existing tagging option
+            Input:
+            - option: str
+            """
             option = arg_by_key("option")
             self.options.delete_option(option)
             return jsonify({"option": option})
@@ -456,10 +639,16 @@ class LangHuanBaseTask(Flask):
         @self.route("/admin")
         @self.admin_access
         def admin():
+            """
+            The admin page
+            """
             return render_template("admin.html")
 
 
 class NERTask(LangHuanBaseTask):
+    """
+    NER Task
+    """
     task_type = "NER"
 
     def register(
@@ -495,6 +684,7 @@ class NERTask(LangHuanBaseTask):
                           self.progress.depth.items() if len(v) > 0),
                 text_col=self.text_col,
                 options=self.options.known_options,
+                admin_control=self.admin_control,
             )
             return jsonify(result)
 
