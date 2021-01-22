@@ -19,6 +19,85 @@ def get_root() -> Path:
     return Path(__file__).parent.absolute()
 
 
+class Dispatcher:
+    def __init__(self, n, v):
+        self.n = n
+        self.v = v
+        self.sent = -1
+        self.started = dict()
+        self.by_user = dict()
+        self.busy_by_user = dict()
+
+    def new_user_todo(self, user_id):
+        return {user_id: list(range(self.n))[max(0, self.sent):]}
+
+    def user_progress(self, user_id):
+        try:
+            user_progress = self.by_user[user_id]
+        except KeyError:
+            self.by_user.update(self.new_user_todo(user_id))
+            user_progress = self.by_user[user_id]
+        return user_progress
+
+    def __repr__(self):
+        return str(self.by_user)+"\n"+str(self.sent)
+
+    def __getitem__(self, user_id):
+        """
+        get index by user_id
+        """
+        if user_id in self.busy_by_user:
+            # read cache
+            return self.busy_by_user[user_id]
+
+        user = self.user_progress(user_id)
+        self.user_clear_progress(user_id)
+        try:
+            index = user[0]
+            self.after_get_update(user_id, index)
+
+        except IndexError:
+            return -1
+        return index
+
+    def after_get_update(self, user_id, index):
+        # save cache
+        self.busy_by_user[user_id] = index
+        user = self.user_progress(user_id)
+        if index in user:
+            user.remove(index)
+        if self.started.get(index) is None:
+            self.started[index] = [user_id, ]
+        else:
+            self.started[index].append(user_id)
+        if len(self.started[index]) >= self.v:
+            self.tick_sent(index)
+
+    def finish_update(
+        self,
+        user_id: str,
+        index: int,
+        callbacks: List[Callable] = []
+    ):
+        # delete cache
+        if self.busy_by_user.get(user_id) == index:
+            del self.busy_by_user[user_id]
+        for callback in callbacks:
+            callback(user_id, index)
+
+    def user_clear_progress(self, user_id):
+        user_progress = self.user_progress(user_id)
+        for i in user_progress:
+            if i <= self.sent:
+                user_progress.remove(i)
+            else:
+                break
+
+    def tick_sent(self, index):
+        self.sent = index
+        del self.started[index]
+
+
 class Progress:
     """
     A project progress handler,
@@ -36,13 +115,10 @@ class Progress:
         self.progress_list = progress_list
         self.history_length = history_length
         self.v_num = cross_verify_num
-        self.ct = 0
-        self.user_ct = dict()
+        self.dispatcher = Dispatcher(n=len(progress_list), v=cross_verify_num)
         self.depth = dict((i, dict()) for i in range(len(progress_list)))
         self.personal_history = dict()
         self.idx_to_index = dict((v, k) for k, v in enumerate(progress_list))
-
-        self.by_user_wip = dict()
 
     def __getitem__(self, index: int) -> Union[int, str]:
         return self.progress_list[index]
@@ -52,42 +128,15 @@ class Progress:
         user_id, random generated hex string
         return the next id for dataframe index
         """
-        if self.ct >= len(self.progress_list):
-            raise StopIteration("Task done")
-        else:
-            if self.user_ct.get(user_id) is None:
-                self.user_ct[user_id] = self.ct
-            if self.user_ct[user_id] > self.ct:
-                index = self.user_ct[user_id]
-            else:
-                index = self.ct
-
-            self.by_user_wip[user_id] = index
-            return index
+        return self.dispatcher[user_id]
 
     def tagging(self, data):
         index = data["index"]
         user_id = data["user_id"]
         # recover the pandas index
         self.depth[index][user_id] = data
-        if user_id in self.by_user_wip:
-            del self.by_user_wip[user_id]
-        self.move_ct(user_id, index)
+        self.dispatcher.finish_update(user_id=user_id, index=index)
         self.update_personal(data)
-
-    def move_ct(self, user_id, index):
-        if index == self.ct:
-            if len(self.depth[index]) >= self.v_num:
-                self.ct += 1
-            elif len(self.depth[self.ct]) +\
-                len(list(filter(
-                    lambda x: x == self.ct,
-                    self.by_user_wip.values()))) >= self.v_num:
-                self.ct += 1
-            else:
-                self.user_ct[user_id] += 1
-        elif index > self.ct:
-            self.user_ct[user_id] = index+1
 
     def update_personal(self, data):
         """
@@ -227,21 +276,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
     def create_task_name(task_name, task_type):
         return task_name if task_name else f"task_{task_type}_{now_str()}"
 
-    def log_skip(self, user_id):
-        """
-        try to see if the user is working on some other entry
-            if do, log the skipped
-        """
-        if user_id in self.progress.by_user_wip:
-            index = self.progress.by_user_wip[user_id]
-            logging.info(
-                f"user: [{user_id}] skipping {index}")
-            self.task_history +\
-                dict(
-                    index=index,
-                    user_id=user_id)
-            del self.progress.by_user_wip[user_id]
-
     def register(
         self,
         df: pd.DataFrame,
@@ -290,7 +324,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             # move on the progress
             if index == -1:
                 try:
-                    self.log_skip(user_id)
                     index = self.progress.next_id(user_id)
                 except StopIteration:
                     return jsonify(dict(done=True))
@@ -363,11 +396,10 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             get by user statistics
             """
             user_ids = list(self.progress.personal_history.keys())
-            empety = dict(
+            by_user = dict((u, dict(
                 entries=[],
                 skipped=[],
-            )
-            by_user = dict((u, empety) for u in user_ids)
+            )) for u in user_ids)
             for index, user_entry in self.progress.depth.items():
                 for user_id, data in user_entry.items():
                     index = data["index"]
@@ -432,10 +464,12 @@ class NERTask(LangHuanBaseTask):
 
         @self.route("/")
         def idx_page():
-            # with specific index
             index_qs = arg_by_key("index")
+            # with specific index
             if index_qs is not None:
                 index = index_qs[0]
+            # no index
+            # let Progress handler handle the progress
             else:
                 index = -1
             return render_template(
