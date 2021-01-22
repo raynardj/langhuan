@@ -2,7 +2,9 @@
 
 {%block work_title%}
 {{super()}}
-<h4 class="m-3" title="Named Entity Recognition">NER task</h4>
+<h4 class="m-3 bg-warning p-2 text-white text-center rounded" title="Named Entity Recognition">
+    <i class="fas fa-dove"></i>
+    NER task</h4>
 {%endblock%}
 
 {%block controls%}
@@ -11,8 +13,8 @@
         Controls
     </h5>
     <div class="m-2 btn-group">
-        <button id='next' class="btn btn-primary btn-sm">Finish</button>
-        <button id='skip' class="btn btn-warning btn-sm">Skip</button>
+        <button id='next' class="btn btn-primary btn-lg">Finish</button>
+        <button id='skip' class="btn btn-warning btn-lg">Skip</button>
     </div>
 </div>
 
@@ -52,9 +54,10 @@
     const create_option_list = (options) => {
         var option_list = [];
         var option_to_data = {}
+        var color_ct=0;
         for (var i in options) {
             if (color_ct >= flavors.length) {
-                color_ct == 0
+                color_ct = 0
             }
             var dt = {
                 label: options[i],
@@ -113,7 +116,6 @@
     const next_btn = () => {
         var tags = calc_label()
         var data = { tags }
-        console.log(data)
         tagging(data)
     }
 
@@ -155,7 +157,6 @@
         fetch(`/personal_history?user_id=${user_id}`)
         .then(res=>res.json())
         .then(data=>{
-            console.log(data)
             d3.select("#histories")
             .selectAll(".history_entry")
             .data(data)
@@ -226,8 +227,5 @@
             }
         }
     }
-
-
-
 </script>
 {%endblock%}

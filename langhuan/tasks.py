@@ -2,8 +2,9 @@ from .hyperflask import HyperFlask
 from .history import History
 from .options import Options
 from .utility import now_str, now_specific, cleanup_tags,\
-    arg_by_key
+    arg_by_key, get_root
 from .order_strategies import OrderStrategies
+from .progress import Progress
 
 from flask import Flask, request, jsonify
 from flask.templating import render_template
@@ -13,148 +14,6 @@ import pandas as pd
 from typing import List, Union, Callable
 from pathlib import Path
 from uuid import uuid4
-
-
-def get_root() -> Path:
-    return Path(__file__).parent.absolute()
-
-
-class Dispatcher:
-    def __init__(self, n, v):
-        self.n = n
-        self.v = v
-        self.sent = -1
-        self.started = dict()
-        self.by_user = dict()
-        self.busy_by_user = dict()
-
-    def new_user_todo(self, user_id):
-        return {user_id: list(range(self.n))[max(0, self.sent):]}
-
-    def user_progress(self, user_id):
-        try:
-            user_progress = self.by_user[user_id]
-        except KeyError:
-            self.by_user.update(self.new_user_todo(user_id))
-            user_progress = self.by_user[user_id]
-        return user_progress
-
-    def __repr__(self):
-        return str(self.by_user)+"\n"+str(self.sent)
-
-    def __getitem__(self, user_id):
-        """
-        get index by user_id
-        """
-        if user_id in self.busy_by_user:
-            # read cache
-            return self.busy_by_user[user_id]
-
-        user = self.user_progress(user_id)
-        self.user_clear_progress(user_id)
-        try:
-            index = user[0]
-            self.after_get_update(user_id, index)
-
-        except IndexError:
-            return -1
-        return index
-
-    def after_get_update(self, user_id, index):
-        # save cache
-        self.busy_by_user[user_id] = index
-        user = self.user_progress(user_id)
-        if index in user:
-            user.remove(index)
-        if self.started.get(index) is None:
-            self.started[index] = [user_id, ]
-        else:
-            self.started[index].append(user_id)
-        if len(self.started[index]) >= self.v:
-            self.tick_sent(index)
-
-    def finish_update(
-        self,
-        user_id: str,
-        index: int,
-        callbacks: List[Callable] = []
-    ):
-        # delete cache
-        if self.busy_by_user.get(user_id) == index:
-            del self.busy_by_user[user_id]
-        for callback in callbacks:
-            callback(user_id, index)
-
-    def user_clear_progress(self, user_id):
-        user_progress = self.user_progress(user_id)
-        for i in user_progress:
-            if i <= self.sent:
-                user_progress.remove(i)
-            else:
-                break
-
-    def tick_sent(self, index):
-        self.sent = index
-        del self.started[index]
-
-
-class Progress:
-    """
-    A project progress handler,
-        allowing multiple but limited number of users
-        working a the same progress, with limited tags
-        per entry of raw data
-    """
-
-    def __init__(
-        self,
-        progress_list: List[int],
-        cross_verify_num: int = 1,
-        history_length: int = 20,
-    ):
-        self.progress_list = progress_list
-        self.history_length = history_length
-        self.v_num = cross_verify_num
-        self.dispatcher = Dispatcher(n=len(progress_list), v=cross_verify_num)
-        self.depth = dict((i, dict()) for i in range(len(progress_list)))
-        self.personal_history = dict()
-        self.idx_to_index = dict((v, k) for k, v in enumerate(progress_list))
-
-    def __getitem__(self, index: int) -> Union[int, str]:
-        return self.progress_list[index]
-
-    def next_id(self, user_id: str) -> Union[int, str]:
-        """
-        user_id, random generated hex string
-        return the next id for dataframe index
-        """
-        return self.dispatcher[user_id]
-
-    def tagging(self, data):
-        index = data["index"]
-        user_id = data["user_id"]
-        # recover the pandas index
-        self.depth[index][user_id] = data
-        self.dispatcher.finish_update(user_id=user_id, index=index)
-        self.update_personal(data)
-
-    def update_personal(self, data):
-        """
-        update data to personal history
-        """
-        user_id = data["user_id"]
-        personal_history = self.personal_history.get(user_id)
-        if type(personal_history) == list:
-            for d in personal_history:
-                if data["index"] == d["index"]:
-                    personal_history.remove(d)
-            personal_history.append(data)
-            if len(personal_history) > self.history_length:
-                personal_history = personal_history[
-                    len(personal_history) - self.history_length:]
-        else:
-            self.personal_history[user_id] = []
-            self.update_personal(data)
 
 
 class LangHuanBaseTask(Flask, OrderStrategies):
@@ -313,10 +172,38 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         else:
             return f
 
+    def show_history_log(self, history):
+        if "skipped" in history:
+            return {
+                "index": history["index"],
+                "time": history["now"],
+                "label": "[skipped]",
+                "skipped": True,
+            }
+        else:
+            return {"index": history["index"],
+                 "time": history["now"],
+                 "label": history["label"]}
+
     def register_functions(self):
         """
         register the custom decorated route functions
         """
+        @self.route("/")
+        def idx_page():
+            index_qs = arg_by_key("index")
+            # with specific index
+            if index_qs is not None:
+                index = index_qs
+            # no index
+            # let Progress handler handle the progress
+            else:
+                index = -1
+            return render_template(
+                self.tagging_template,
+                index=index,
+            )
+
         @self.route("/data", methods=["POST", "GET"])
         def raw_data():
             index = arg_by_key("index")
@@ -368,15 +255,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             return jsonify(
                 {"so_far": self.task_history.history_save_mark}
             )
-
-        @self.route("/monitor", methods=["POST", "GET"])
-        def monitor():
-            stats = dict(
-                total=len(self.progress.progress_list),
-                by_user=self.progress.by_user_wip,
-                current_id=self.progress.ct,
-            )
-            return jsonify(stats)
 
         @self.route("/tagged", methods=["POST", "GET"])
         def tagged_data():
@@ -445,38 +323,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             """
             return render_template("admin.html")
 
-
-class NERTask(LangHuanBaseTask):
-    """
-    NER Task
-    """
-    task_type = "NER"
-
-    def register(
-        self,
-        df: pd.DataFrame,
-        text_col: Union[List[str], str],
-        options: List[str],
-    ) -> None:
-        self.df = df
-        self.text_col = text_col
-        self.options = options
-
-        @self.route("/")
-        def idx_page():
-            index_qs = arg_by_key("index")
-            # with specific index
-            if index_qs is not None:
-                index = index_qs[0]
-            # no index
-            # let Progress handler handle the progress
-            else:
-                index = -1
-            return render_template(
-                "ner.html",
-                index=index,
-            )
-
         @self.route("/result")
         def download_result():
             """
@@ -501,19 +347,47 @@ class NERTask(LangHuanBaseTask):
                 return jsonify([])
 
             for history in personal_history:
-                if "skipped" in history:
-                    result.append({
-                        "index": history["index"],
-                        "time": history["now"],
-                        "tags": 0,
-                        "skipped": True,
-                    })
-                else:
-                    result.append(
-                        {"index": history["index"],
-                         "time": history["now"],
-                         "tags": len(history["tags"])})
-
+                result.append(self.show_history_log(history))
             return jsonify(result[::-1])
 
+
+    def register(
+        self,
+        df: pd.DataFrame,
+        text_col: Union[List[str], str],
+        options: List[str],
+    ) -> None:
+        self.df = df
+        self.text_col = text_col
+        self.options = options
         self.register_functions()
+
+
+class NERTask(LangHuanBaseTask):
+    """
+    NER Task
+    """
+    task_type = "NER"
+    tagging_template = "ner.html"
+
+    def show_history_log(self, history):
+        if "skipped" in history:
+            return {
+                "index": history["index"],
+                "time": history["now"],
+                "tags": 0,
+                "skipped": True,
+            }
+        else:
+            return {"index": history["index"],
+                 "time": history["now"],
+                 "tags": len(history["tags"])}
+
+
+class ClassifyTask(LangHuanBaseTask):
+    """
+    Classify Task
+    """
+    task_type = "Classify"
+    tagging_template = "classify.html"
+

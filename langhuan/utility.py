@@ -2,6 +2,7 @@ from datetime import datetime
 from flask import request
 from typing import Union
 import json
+from pathlib import Path
 
 
 def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
@@ -33,3 +34,7 @@ def arg_by_key(key: str) -> Union[str, int, float]:
         raise RuntimeError(
             "method has to be GET or POST")
     return rt
+
+
+def get_root() -> Path:
+    return Path(__file__).parent.absolute()

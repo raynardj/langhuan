@@ -1,0 +1,132 @@
+{%extends "tagging.html"%}
+
+{%block work_title%}
+{{super()}}
+<h4 class="m-3 bg-primary p-2 text-white text-center rounded" title="Classify">
+    <i class="fas fa-dog">
+    </i>
+    Classify</h4>
+{%endblock%}
+
+{%block controls%}
+<div class="m-3">
+    <h5 class="mt-2 mb-2">
+        Controls
+    </h5>
+    <div class="m-2 btn-group">
+        <button id='skip' class="btn btn-warning btn-lg">Skip</button>
+    </div>
+</div>
+
+{%endblock%}
+
+{%block tail_js%}
+{{super()}}
+<script>
+    var color_ct = 0
+
+    const create_raw = (d) => {
+        // console.log(d)
+        document.querySelector("#raw").innerHTML = d.text
+        document.querySelector("#raw").dataset.hl_index = d.index
+
+        if (d.record) {
+            // this is a data entry this user already tagged
+            if (d.record.tags) {
+                var option_to_data = JSON.parse(document
+                    .querySelector("#label_pool")
+                    .dataset.option_to_data)
+                var tags = d.record.tags
+            }
+        }
+
+        get_history()
+    }
+
+    const create_controls = (d) => {
+        var { option_list, option_to_data } = create_option_list(d.options)
+        document.querySelector("#label_pool").dataset.option_to_data = JSON.stringify(option_to_data)
+        visualize_options(option_list)
+    }
+
+    const option_2_flavor = {"[skipped]":"dark"}
+
+    const create_option_list = (options) => {
+        var option_list = [];
+        var option_to_data = {};
+        var color_ct=0;
+        for (var i in options) {
+            if (color_ct >= flavors.length) {
+                color_ct = 0
+            }
+            var dt = {
+                label: options[i],
+                flavor: flavors[color_ct]
+            }
+            option_2_flavor[options[i]] = flavors[color_ct];
+            option_list.push(dt);
+            option_to_data[options[i]] = dt;
+            color_ct += 1;
+        }
+
+        return { option_list, option_to_data }
+    }
+
+    document.querySelector("#skip").addEventListener("click", skipping)
+
+    const get_history = async () => {
+        var user_id = get_user_id()
+        fetch(`/personal_history?user_id=${user_id}`)
+        .then(res=>res.json())
+        .then(data=>{
+            var entries = d3.select("#histories")
+            .selectAll(".history_entry")
+            .data(data)
+            .enter()
+            .append("div")
+            .attr("class",
+            "history_entry border border-default rounded-pill border-2 border-top-0 border-bottom-0")
+
+            entries.append("div")
+            .style("border-radius","50px")
+            .attr("class", d=>{
+                return `bg-${option_2_flavor[d.label]} mb-1 p-1 text-center text-white rounded-bottom`})
+            .text(
+                d=>{
+                    if(d.label!="[skipped]")
+                    {return `${d.label}`
+                    }else{return "Skipped"}
+                }
+            )
+
+            entries.append("div")
+            .attr("class","text-center text-secondary p-1")
+            .text(d=>{return `${d.time.substring(9,17)}`})
+
+            entries
+            .on("click", (e, data) => {
+                console.log(data)
+                window.location = `/?index=${data.index}`
+            })
+        })
+        .catch(console.error)
+    }
+
+    const visualize_options = (options) => {
+        d3.select("#label_pool").selectAll("button")
+            .data(options)
+            .enter().append("button")
+            .style("border-radius","30px")
+            .attr("class", (d) => {
+                return ` btn btn-${d.flavor} btn-lg m-2 rounded-bottom`
+            })
+            .text((d) => {
+                return d.label
+            })
+            .on("click", (e, d) => {
+                    var label = d.label
+                    tagging({label})
+                })
+    }
+</script>
+{%endblock%}

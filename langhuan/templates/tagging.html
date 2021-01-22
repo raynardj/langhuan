@@ -62,7 +62,7 @@
     const flavors = [
         "primary", "danger", "success", "warning", "dark", "secondary", "info"
     ]
-    var index = {{ index }}
+    var index = parseInt("{{index}}");
 
     const genRanHex = size => [...Array(size)].map(() => Math.floor(Math.random() * 16).toString(16)).join('');
 
@@ -78,15 +78,18 @@
     }
 
     var user_id = get_user_id();
-    document.querySelector('#user_id').innerHTML=user_id
+    document.querySelector('#user_id').innerHTML = user_id
 
     fetch("/data", {
-        method: "POST",
-        header: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ index, user_id: get_user_id() })
-    }).then(res => res.json())
+            method: "POST",
+            header: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                index,
+                user_id: get_user_id()
+            })
+        }).then(res => res.json())
         .then(d => {
             create_controls(d);
             create_raw(d);
@@ -96,14 +99,13 @@
             } else {
                 localStorage.setItem("has_record", "false")
             }
-            console.log(localStorage.getItem("has_record"))
         })
         .catch(console.error)
 
     const skipping = () => {
-        
+
         // if already tagged, skipping means not bothering this entry
-        if (localStorage.getItem("has_record")=="true") {
+        if (localStorage.getItem("has_record") == "true") {
             window.location = "/"
             return
         }
@@ -114,14 +116,20 @@
         var index = parseInt(document.querySelector("#raw").dataset.hl_index);
 
         fetch("/tagging", {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ user_id, index, skipped })
-        })
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id,
+                    index,
+                    skipped
+                })
+            })
             .then(res => res.json())
-            .then(data => { window.location = "/" })
+            .then(data => {
+                window.location = "/"
+            })
             .catch(console.error)
     }
 
@@ -130,16 +138,17 @@
         data.index = parseInt(
             document.querySelector("#raw").dataset.hl_index);
         fetch("/tagging", {
-            method: "POST",
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
             .then(res => res.json())
-            .then(data => { window.location = "/" })
+            .then(data => {
+                window.location = "/"
+            })
             .catch(console.error)
     }
-
 </script>
 {%endblock%}
