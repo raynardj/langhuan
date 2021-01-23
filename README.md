@@ -1,7 +1,9 @@
 # LangHuAn
-> **Lang**uage **Hu**man **An**notations, a frontend for tagging AI project labels
+> **Lang**uage **Hu**man **An**notations, a frontend for tagging AI project labels, drived by pandas dataframe data.
 
 > From Chinese word **琅嬛[langhuan]** (Legendary realm where god curates books)
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Nwh6roiX_9I" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 
 ## Installation
 ```shell
@@ -9,6 +11,8 @@ pip install langhuan
 ```
 
 ## Minimun configuration walk through
+> langhuan start a flask application from pandas dataframe
+
 ### Simplest configuration for **NER** task
 
 ```python
