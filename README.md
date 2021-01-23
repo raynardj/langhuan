@@ -3,7 +3,7 @@
 
 > From Chinese word **琅嬛[langhuan]** (Legendary realm where god curates books)
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/Nwh6roiX_9I" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+[![Introduction Video](https://img.youtube.com/vi/Nwh6roiX_9I/0.jpg)](https://www.youtube.com/watch?v=Nwh6roiX_9I)
 
 ## Installation
 ```shell
