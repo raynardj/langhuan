@@ -86,7 +86,7 @@
             })
         }
 
-        get_node = () => {
+        get_node(){
             return this.node
         }
     }
@@ -129,9 +129,9 @@
         try {
             var selected = document.getSelection()
 
-            if (selected.baseNode.parentElement.id != "raw") {
+            if (selected.anchorNode.parentElement.id != "raw") {
                 // select outside of the textarea
-                console.log(`out of area ${selected.baseNode.parentElement.id}`)
+                console.log(`out of area ${selected.anchorNode.parentElement.id}`)
                 return
             }
 

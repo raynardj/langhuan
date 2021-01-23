@@ -100,7 +100,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             # loading the history to progress
             if len(app.task_history.history) > 0:
                 for data in app.task_history.history:
-                    app.progress.tagging(data)
+                    app.progress.recover_history(data)
         return app
 
     def create_progress(
@@ -134,15 +134,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
     @staticmethod
     def create_task_name(task_name, task_type):
         return task_name if task_name else f"task_{task_type}_{now_str()}"
-
-    def register(
-        self,
-        df: pd.DataFrame,
-        text_col: str,
-        options: List[str],
-    ) -> None:
-        return NotImplementedError(
-            "LangHuanBaseTask.register() should be over writen")
 
     def admin_access(self, f: Callable) -> Callable:
         """

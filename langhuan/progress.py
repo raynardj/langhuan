@@ -61,6 +61,11 @@ class Dispatcher:
         index: int,
         callbacks: List[Callable] = []
     ):
+        """
+        callbacks allow for furthur manuvers
+        each callback function can process:
+        callback(user_id, index)
+        """
         # delete cache
         if self.busy_by_user.get(user_id) == index:
             del self.busy_by_user[user_id]
@@ -111,6 +116,18 @@ class Progress:
         return the next id for dataframe index
         """
         return self.dispatcher[user_id]
+
+    def recover_history(self, data):
+        """
+        Recover single entry of history data
+            to the dispatcher
+        """
+        self.tagging(data)
+        user_id = data["user_id"]
+        pandas = data["pandas"]
+        index = self.idx_to_index[pandas]
+        self.dispatcher.after_get_update(user_id=user_id, index=index)
+        self.dispatcher.finish_update(user_id=user_id, index=index)
 
     def tagging(self, data):
         index = data["index"]
