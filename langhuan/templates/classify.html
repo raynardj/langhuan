@@ -87,10 +87,11 @@
             .attr("class",
             "history_entry border border-default rounded-pill border-2 border-top-0 border-bottom-0")
 
-            entries.append("div")
+            entries.append("button")
             .style("border-radius","50px")
+            .style("width","100%")
             .attr("class", d=>{
-                return `bg-${option_2_flavor[d.label]} mb-1 p-1 text-center text-white rounded-bottom`})
+                return `btn btn-${option_2_flavor[d.label]} mb-1 p-1 text-center text-white rounded-bottom`})
             .text(
                 d=>{
                     if(d.label!="[skipped]")
