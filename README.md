@@ -3,7 +3,7 @@
 
 > From Chinese word **琅嬛[langhuan]** (Legendary realm where god curates books)
 
-[![Introduction Video](https://img.youtube.com/vi/Nwh6roiX_9I/0.jpg)](https://www.youtube.com/watch?v=Nwh6roiX_9I)
+[![Introduction Video](https://raw.githubusercontent.com/raynardj/langhuan/main/docs/imgs/ner1.jpg)](https://www.youtube.com/watch?v=Nwh6roiX_9I)
 
 ## Installation
 ```shell
@@ -13,7 +13,7 @@ pip install langhuan
 ## Minimun configuration walk through
 > langhuan start a flask application from pandas dataframe
 
-### Simplest configuration for **NER** task
+### Simplest configuration for **NER** task 🚀
 
 ```python
 from langhuan import NERTask
@@ -24,7 +24,7 @@ app = NERTask.from_df(
 app.run("0.0.0.0", port=5000)
 ```
 
-### Simplest configuration for **Classify** task
+### Simplest configuration for **Classify** task 🚀
 ```python
 from langhuan import ClassifyTask
 
@@ -33,6 +33,7 @@ app = ClassifyTask.from_df(
     options=["positive", "negative", "unbiased", "not sure"])
 app.run("0.0.0.0", port=5000)
 ```
+![classification image](https://raw.githubusercontent.com/raynardj/langhuan/main/docs/imgs/classify1.jpg)
 
 ## Frontend
 > You can visit following pages for this app.
@@ -41,7 +42,7 @@ app.run("0.0.0.0", port=5000)
 ```http://[ip]:[port]/``` is for our hard working taggers to visit.
 
 ### Admin
-```http://[ip]:[port]/admin``` is a page where you can:
+```http://[ip]:[port]/admin``` is a page where you can 👮🏽‍♂️:
 * See the progress of each user.
 * Force save the progress, (or it will only save according to ```save_frequency```, default 42 entries)
 * Download the tagged entries
