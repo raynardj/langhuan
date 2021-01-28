@@ -60,6 +60,15 @@ app = ClassifyTask.from_df(
     cross_verify_num=2,)
 ```
 
+#### Order strategy
+The order of which text got tagged first is according to order_strategy.
+
+Default is set to ```"forward_match"```, you can try ```pincer``` or ```trident```
+![order strategies](https://raw.githubusercontent.com/raynardj/langhuan/main/docs/imgs/strategies.jpg)
+
+Assume the order_by_column is set to the prediction of last batch of deep learning model:
+- trident means the taggers tag the most confident positive, most confident negative, most unsure ones first.
+
 #### Load History
 If your service stopped, you can recover the progress from cache.
 
