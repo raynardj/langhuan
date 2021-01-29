@@ -3,6 +3,8 @@
 
 > From Chinese word **琅嬛[langhuan]** (Legendary realm where god curates books)
 
+Here's a [5 minutes youtube video](https://www.youtube.com/watch?v=Nwh6roiX_9I) explaining how langhuan works
+
 [![Introduction Video](https://raw.githubusercontent.com/raynardj/langhuan/main/docs/imgs/ner1.jpg)](https://www.youtube.com/watch?v=Nwh6roiX_9I)
 
 ## Installation
@@ -11,7 +13,7 @@ pip install langhuan
 ```
 
 ## Minimun configuration walk through
-> langhuan start a flask application from pandas dataframe
+> langhuan start a flask application from **pandas dataframe** 🐼 !
 
 ### Simplest configuration for **NER** task 🚀
 
@@ -97,6 +99,13 @@ app = NERTask.from_df(
     )
 ```
 
-### Compatibility
+#### Gunicorn support
+This is a **light weight** solution. When move things to gunicorn, multithreads is acceptable, but multiworkers will cause chaos.
+
+```shell
+gunicorn --workers=1 --threads=5 app:app
+```
+
+## Compatibility 💍
 Well, this library hasn't been tested vigorously against many browsers with many versions, so far
 * compatible with chrome, firefox, safari if version not too old.

@@ -173,8 +173,12 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             }
         else:
             return {"index": history["index"],
-                 "time": history["now"],
-                 "label": history["label"]}
+                    "time": history["now"],
+                    "label": history["label"]}
+
+    def append_text_to_data(self, text_dict, data):
+        text_dict[data["index"]] = self.df.loc[data["pandas"], self.text_col]
+        return data
 
     def register_functions(self):
         """
@@ -319,9 +323,15 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             """
             return the result as a big json string
             """
+            texts = dict()
+            labels = dict((k, list(
+                self.append_text_to_data(texts, d) for u, d in v.items()))
+                for k, v in self.progress.depth.items()
+                if len(v) > 0)
+
             result = dict(
-                data=dict((k, list(d for u, d in v.items())) for k, v in
-                          self.progress.depth.items() if len(v) > 0),
+                texts=texts,
+                labels=labels,
                 text_col=self.text_col,
                 options=self.options.known_options,
                 admin_control=self.admin_control,
@@ -340,7 +350,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             for history in personal_history:
                 result.append(self.show_history_log(history))
             return jsonify(result[::-1])
-
 
     def register(
         self,
@@ -371,8 +380,8 @@ class NERTask(LangHuanBaseTask):
             }
         else:
             return {"index": history["index"],
-                 "time": history["now"],
-                 "tags": len(history["tags"])}
+                    "time": history["now"],
+                    "tags": len(history["tags"])}
 
 
 class ClassifyTask(LangHuanBaseTask):
@@ -381,4 +390,3 @@ class ClassifyTask(LangHuanBaseTask):
     """
     task_type = "Classify"
     tagging_template = "classify.html"
-
