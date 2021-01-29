@@ -173,12 +173,12 @@
     }
 
     const visualize_options = (options) => {
-        d3.select("#label_pool").selectAll("span")
+        d3.select("#label_pool").selectAll("button")
             .data(options)
-            .enter().append("span")
+            .enter().append("button")
             .style("border-radius", "3px")
             .attr("class", (d) => {
-                return `bg-${d.flavor} text-white pt-1 pb-2 pl-3 pr-3 m-1`
+                return `btn btn-${d.flavor} m-1`
             })
             .text((d) => {
                 return d.label

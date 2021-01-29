@@ -5,37 +5,38 @@
 {%endblock%}
 
 {%block content%}
+<div class="body p-0">
 <div class="row">
-    <div class="col-sm-3 p-e">
+    <div class="col-sm-3 p-3">
+            {%block work_title%}
+            <h3 class="m-3">
+                <strong>Lang</strong><span class='text-warning'>Hu</span><strong class='text-danger'>an</strong>
+                <a class="github-button" href="https://github.com/raynardj/langhuan" data-size="large"
+                    data-show-count="true" aria-label="Star raynardj/langhuan on GitHub">Star</a>
+            </h3>
+            <div class="m-3 p-2 text-white bg-secondary rounded text-center">
+                <i class="fas fa-user">
 
-        {%block work_title%}
-        <h3 class="m-3">
-            <strong>Lang</strong><span class='text-warning'>Hu</span><strong class='text-danger'>an</strong>
-            <a class="github-button" href="https://github.com/raynardj/langhuan" data-size="large" data-show-count="true" aria-label="Star raynardj/langhuan on GitHub">Star</a>
-        </h3>
-        <div class="m-3 p-2 text-white bg-secondary rounded text-center">
-            <i class="fas fa-user">
+                </i>
+                <span id="user_id">
 
-            </i>
-            <span id="user_id">
+                </span>
+            </div>
+            {%endblock%}
+            <hr>
 
-            </span>
-        </div>
-        {%endblock%}
-        <hr>
+            {%block controls%}
 
-        {%block controls%}
+            {%endblock%}
+        
+            <div id="histories">
 
-        {%endblock%}
-
-        <div id="histories">
-
-        </div>
+            </div>
     </div>
 
     <div class="col-sm-9">
         {%block topbar%}
-        <div class="card m-2">
+        <div class="card m-2 sticky-top">
             <div class="card-body">
                 {%block labels%}
                 <h5>
@@ -54,6 +55,7 @@
         </div>
 
     </div>
+</div>
 </div>
 {%endblock%}
 
@@ -82,15 +84,15 @@
     document.querySelector('#user_id').innerHTML = user_id
 
     fetch("/data", {
-            method: "POST",
-            header: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                index,
-                user_id: get_user_id()
-            })
-        }).then(res => res.json())
+        method: "POST",
+        header: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            index,
+            user_id: get_user_id()
+        })
+    }).then(res => res.json())
         .then(d => {
             create_controls(d);
             create_raw(d);
@@ -117,16 +119,16 @@
         var index = parseInt(document.querySelector("#raw").dataset.hl_index);
 
         fetch("/tagging", {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    user_id,
-                    index,
-                    skipped
-                })
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id,
+                index,
+                skipped
             })
+        })
             .then(res => res.json())
             .then(data => {
                 window.location = "/"
@@ -139,12 +141,12 @@
         data.index = parseInt(
             document.querySelector("#raw").dataset.hl_index);
         fetch("/tagging", {
-                method: "POST",
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
             .then(res => res.json())
             .then(data => {
                 window.location = "/"
