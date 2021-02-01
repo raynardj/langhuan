@@ -99,6 +99,11 @@ app = NERTask.from_df(
     )
 ```
 
+#### From downloaded data => pytorch dataset
+> For downloaded NER data tags, you can create a dataloader with the json file automatically:
+* [pytorch + huggingface tokenizer](https://github.com/raynardj/langhuan/tree/main/tests/loader.ipynb)
+* tensorflow + huggingface tokenizer, development pending
+
 #### Gunicorn support
 This is a **light weight** solution. When move things to gunicorn, multithreads is acceptable, but multiworkers will cause chaos.
 
