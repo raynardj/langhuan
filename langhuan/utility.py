@@ -17,7 +17,7 @@ def cleanup_tags(x: str) -> str:
     remove the string that will break the frontend
     x: str, input string
     """
-    return x.replace("<", "◀️").replace(">", "▶️")
+    return x.replace("<", "˂").replace(">", "˃")
 
 
 def arg_by_key(key: str) -> Union[str, int, float]:
