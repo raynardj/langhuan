@@ -101,7 +101,7 @@ app = NERTask.from_df(
 
 #### From downloaded data => pytorch dataset
 > For downloaded NER data tags, you can create a dataloader with the json file automatically:
-* [pytorch + huggingface tokenizer](https://github.com/raynardj/langhuan/tree/main/tests/loader.ipynb)
+* [pytorch + huggingface tokenizer](https://raynardj.github.io/langhuan/docs/loaders)
 * tensorflow + huggingface tokenizer, development pending
 
 #### Gunicorn support
