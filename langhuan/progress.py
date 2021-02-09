@@ -1,5 +1,5 @@
 from typing import List, Callable, Union
-
+import logging
 
 class Dispatcher:
     def __init__(self, n, v):
@@ -30,7 +30,6 @@ class Dispatcher:
         """
         if user_id in self.busy_by_user:
             # read cache
-            print(f"caching user {user_id}: idx{self.busy_by_user[user_id]}")
             return self.busy_by_user[user_id]
 
         self.user_clear_progress(user_id)
@@ -76,17 +75,11 @@ class Dispatcher:
     def user_clear_progress(self, user_id):
         user_progress = self.user_progress(user_id)
 
-        # new_progress = []
-        # for i in user_progress:
-        #     if i > self.sent:
-        #         new_progress.append(i)
-        # self.by_user[user_id] = new_progress
-        # print(f"user_progress:{self.by_user[user_id]}")
+        new_progress = []
         for i in user_progress:
-            if i <= self.sent:
-                user_progress.remove(i)
-        print(f"user_progress:{self.by_user[user_id]}")
-        print(f"user_progress:{user_progress}")
+            if i > self.sent:
+                new_progress.append(i)
+        self.by_user[user_id] = new_progress
 
     def tick_sent(self, index):
         self.sent = index

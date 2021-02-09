@@ -177,7 +177,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
                     "label": history["label"]}
 
     def append_text_to_data(self, text_dict, data):
-        text_dict[data["index"]] = self.df.loc[data["pandas"], self.text_col]
+        text_dict[data["pandas"]] = self.df.loc[data["pandas"], self.text_col]
         return data
 
     def register_functions(self):
