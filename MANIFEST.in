@@ -1,1 +1,2 @@
 recursive-include langhuan/static/ *
+recursive-include langhuan/templates/ *
