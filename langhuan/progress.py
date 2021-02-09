@@ -30,10 +30,11 @@ class Dispatcher:
         """
         if user_id in self.busy_by_user:
             # read cache
+            print(f"caching user {user_id}: idx{self.busy_by_user[user_id]}")
             return self.busy_by_user[user_id]
 
-        user = self.user_progress(user_id)
         self.user_clear_progress(user_id)
+        user = self.user_progress(user_id)
         try:
             index = user[0]
             self.after_get_update(user_id, index)
@@ -74,11 +75,18 @@ class Dispatcher:
 
     def user_clear_progress(self, user_id):
         user_progress = self.user_progress(user_id)
+
+        # new_progress = []
+        # for i in user_progress:
+        #     if i > self.sent:
+        #         new_progress.append(i)
+        # self.by_user[user_id] = new_progress
+        # print(f"user_progress:{self.by_user[user_id]}")
         for i in user_progress:
             if i <= self.sent:
                 user_progress.remove(i)
-            else:
-                break
+        print(f"user_progress:{self.by_user[user_id]}")
+        print(f"user_progress:{user_progress}")
 
     def tick_sent(self, index):
         self.sent = index
@@ -91,14 +99,20 @@ class Progress:
         allowing multiple but limited number of users
         working a the same progress, with limited tags
         per entry of raw data
+    index is a generated incremental integer series
+    idx is the pandas index
     """
 
     def __init__(
         self,
-        progress_list: List[int],
+        progress_list: List[Union[int, str]],
         cross_verify_num: int = 1,
         history_length: int = 20,
     ):
+        """
+        progress_list: List[int], a list of pandas index (idx)
+            reordered by order strategy
+        """
         self.progress_list = progress_list
         self.history_length = history_length
         self.v_num = cross_verify_num
@@ -140,6 +154,8 @@ class Progress:
     def update_personal(self, data):
         """
         update data to personal history
+        This history is for showing history lines on
+            the left side of web browswer
         """
         user_id = data["user_id"]
         personal_history = self.personal_history.get(user_id)
