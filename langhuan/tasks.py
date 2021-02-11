@@ -97,10 +97,12 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             cross_verify_num=cross_verify_num)
 
         if load_history:
+            logging.info(f"start loading history")
             # loading the history to progress
             if len(app.task_history.history) > 0:
                 for data in app.task_history.history:
                     app.progress.recover_history(data)
+            logging.info(f"history loaded")
         return app
 
     def create_progress(
