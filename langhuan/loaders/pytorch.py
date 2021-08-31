@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 from functools import partial
-from typing import Dict, Union, List, Tuple
+from typing import Dict, Union, List, Tuple, Any
 import random
 
 
@@ -261,6 +261,7 @@ def load_ner_data_pytorch(file_path: Path):
 def load_ner_data_pytorch_huggingface(
     file_path: Path,
     tokenizer,
+    tokenization_options: Dict[str, Any] = None,
 ):
     """
     Automate the process from langhuan export
@@ -273,4 +274,5 @@ def load_ner_data_pytorch_huggingface(
 
     NERDatasetHF = get_ner_hf_class()
 
-    return NERDatasetHF(json_data, tokenizer=tokenizer)
+    return NERDatasetHF(json_data, tokenizer=tokenizer,
+                        tokenization_options=tokenization_options, )
