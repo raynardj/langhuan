@@ -147,7 +147,11 @@ def get_ner_hf_class():
 #                     print(f"token decoded: {token_decoded}")
 
                     y[row, :len(tag_mask)] += tag_mask
-            return x, y
+            return {
+                "input_ids": x,
+                "attention_mask": tked["attention_mask"],
+                "targets": y
+            }
 
         def get_data_loader(self, **kwargs):
             """
