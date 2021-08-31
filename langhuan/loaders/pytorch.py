@@ -100,16 +100,31 @@ def get_ner_hf_class():
             x, y
         """
 
-        def __init__(self, data, tokenizer):
+        def __init__(
+            self,
+            data,
+            tokenizer,
+            tokenization_options=dict(),
+        ):
             super().__init__(data)
             self.options = self.data["options"]
 
             self.tokenizer = tokenizer
-            self.tokenizing = partial(
-                self.tokenizer,
+
+            # default tokenization options
+            # this will be overriden by the tokenization_options
+            tkkw = dict(
                 return_offsets_mapping=True,
                 padding=True,
-                return_tensors="pt")
+                return_tensors="pt",
+            )
+
+            tkkw.update(tokenization_options)
+            self.tokenization_options = tkkw
+            self.tokenizing = partial(
+                self.tokenizer,
+                **tkkw
+            )
 
             # keyword arguments passed on to inherited class
             self.passon_kwargs = dict({"tokenizer": tokenizer})
