@@ -127,7 +127,11 @@ def get_ner_hf_class():
             )
 
             # keyword arguments passed on to inherited class
-            self.passon_kwargs = dict({"tokenizer": tokenizer})
+            self.passon_kwargs = dict(
+                {
+                    "tokenizer": tokenizer,
+                    "tokenization_options": tokenization_options}
+            )
 
         def __repr__(self):
             return f"NER dataset (HuggingFace Tokenizer):\n\t{len(self)} rows"
@@ -261,7 +265,7 @@ def load_ner_data_pytorch(file_path: Path):
 def load_ner_data_pytorch_huggingface(
     file_path: Path,
     tokenizer,
-    tokenization_options: Dict[str, Any] = None,
+    tokenization_options: Dict[str, Any] = dict(),
 ):
     """
     Automate the process from langhuan export
