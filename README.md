@@ -62,6 +62,26 @@ app = ClassifyTask.from_df(
     cross_verify_num=2,)
 ```
 
+#### Preset the tagging
+You can set a column in dataframe, eg. called ```guessed_tags```, to preset the tagging result.
+
+Each cell can contain the format of tagging result, eg. 
+```json
+{"tags":[
+    {"text": "Genomicare Bio Tech", "offset":32, "label":"company"},
+    {"text": "East China University of Politic Science & Law", "offset":96, "label":"company"},
+    ]}
+```
+
+Then you can run the app with preset tag column
+```python
+app = NERTask.from_df(
+    df, text_col="description",
+    options=["institution", "company", "name"],
+    preset_tag_col="guessed_tags")
+app.run("0.0.0.0", port=5000)
+```
+
 #### Order strategy
 The order of which text got tagged first is according to order_strategy.
 

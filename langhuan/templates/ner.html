@@ -4,7 +4,8 @@
 {{super()}}
 <h4 class="m-3 bg-warning p-2 text-white text-center rounded" title="Named Entity Recognition">
     <i class="fas fa-dove"></i>
-    NER task</h4>
+    NER task
+</h4>
 {%endblock%}
 
 {%block controls%}
@@ -54,7 +55,7 @@
     const create_option_list = (options) => {
         var option_list = [];
         var option_to_data = {}
-        var color_ct=0;
+        var color_ct = 0;
         for (var i in options) {
             if (color_ct >= flavors.length) {
                 color_ct = 0
@@ -80,18 +81,24 @@
             this.node.title = d.label;
             var node = this.node
 
+            /*
+            Click the selected to remove tag
+            */
             this.node.addEventListener("click", () => {
                 node.after(node.innerText)
                 node.remove()
             })
         }
 
-        get_node(){
+        get_node() {
             return this.node
         }
     }
 
     const calc_label = () => {
+        /*
+        From the DOM, get the tagged data
+        */
         var nodes = document.querySelector("#raw").childNodes
 
         var tags = [];
@@ -118,7 +125,6 @@
         var data = { tags }
         tagging(data)
     }
-
 
     document.querySelector("#next").addEventListener("click", next_btn)
     document.querySelector("#skip").addEventListener("click", skipping)
@@ -155,24 +161,27 @@
     const get_history = async () => {
         var user_id = get_user_id()
         fetch(`/personal_history?user_id=${user_id}`)
-        .then(res=>res.json())
-        .then(data=>{
-            d3.select("#histories")
-            .selectAll(".history_entry")
-            .data(data)
-            .enter()
-            .append("div")
-            .attr("class",
-            "history_entry m-3 pt-1 pb-1 pl-3 pr-3 border border-primary rounded-pill border-3 border-top-0 border-bottom-0")
-            .text(d=>{return `${d.time.substring(9,17)} (${d.tags}x🏷)`})
-            .on("click", (e, data) => {
-                window.location = `/?index=${data.index}`
+            .then(res => res.json())
+            .then(data => {
+                d3.select("#histories")
+                    .selectAll(".history_entry")
+                    .data(data)
+                    .enter()
+                    .append("div")
+                    .attr("class",
+                        "history_entry m-3 pt-1 pb-1 pl-3 pr-3 border border-primary rounded-pill border-3 border-top-0 border-bottom-0")
+                    .text(d => { return `${d.time.substring(9, 17)} (${d.tags}x🏷)` })
+                    .on("click", (e, data) => {
+                        window.location = `/?index=${data.index}`
+                    })
             })
-        })
-        .catch(console.error)
+            .catch(console.error)
     }
 
     const visualize_options = (options) => {
+        /*
+        Visualize the options as buttons
+        */
         d3.select("#label_pool").selectAll("button")
             .data(options)
             .enter().append("button")
@@ -214,7 +223,7 @@
         subs.push({ text: text.substring(ct, text.length) })
         // console.log(subs)
 
-        raw.innerHTML=""
+        raw.innerHTML = ""
 
         for (var i in subs) {
             var sub = subs[i];

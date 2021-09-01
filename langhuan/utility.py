@@ -3,6 +3,7 @@ from flask import request
 from typing import Union
 import json
 from pathlib import Path
+import regex
 
 
 def now_str(): return datetime.now().strftime("%y%m%d_%H%M%S")
@@ -38,3 +39,12 @@ def arg_by_key(key: str) -> Union[str, int, float]:
 
 def get_root() -> Path:
     return Path(__file__).parent.absolute()
+
+
+def findall_word_position(text: str, word: str) -> list:
+    """
+    find all the position of word in text
+    """
+    text = text.lower()
+    word = word.lower()
+    return [m.start() for m in regex.finditer(word, text)]

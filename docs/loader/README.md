@@ -54,7 +54,9 @@ len(train_ds), len(val_ds)
 
 
 ```python
-x, y = data_ds.one_batch(5)
+batch = data_ds.one_batch(5)
+x = batch['input_ids']
+y = batch['targets']
 ```
 
 

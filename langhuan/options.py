@@ -33,7 +33,7 @@ class Options(object):
             dict(options=self.option_vals, idx=self.df_idx))
 
         self.option_col = self.df["options"]
-        self.df.set_index("idx")
+        self.df = self.df.set_index("idx")
 
     def __len__(self): return len(self.df)
 

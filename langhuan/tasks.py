@@ -27,6 +27,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         task_name: str = None,
         options: List[str] = None,
         load_history: bool = False,
+        preset_tag_col: str = None,
         save_frequency: int = 42,
         order_strategy: Union[str, Callable] = "forward_march",
         order_by_column: str = None,
@@ -42,6 +43,8 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             you don't even have to decide this now, you can input
             None and configure it on /admin page later
         - load_history: bool = False, load the saved history if True
+        - preset_tag_col: str = None, a column name
+            that contains preset tags
         - task_name: str, name of your task, if not provided
         - order_strategy: Union[str, Callable] = "forward_march",
             a function defining how progress move one by one. As a
@@ -90,7 +93,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         HyperFlask(app)
 
-        app.register(df, text_col, Options(df, options))
+        app.register(df, text_col, preset_tag_col, Options(df, options))
         app.create_progress(
             order_strategy,
             order_by_column,
@@ -219,8 +222,15 @@ class LangHuanBaseTask(Flask, OrderStrategies):
 
             rt = dict(idx=idx, index=index, text=text, options=list(options))
 
+            # Scenario 1, when we have tagged data in progress
             if user_id in self.progress.depth[index].keys():
                 rt.update({"record": self.progress.depth[index][user_id]})
+
+            # Scenario 2, when we have preset tag defined in dataframe
+            elif self.preset_tag_col is not None:
+                preset_tag = self.df.loc[idx, self.preset_tag_col]
+                if preset_tag is not None:
+                    rt.update({"record": preset_tag})
 
             return jsonify(rt)
 
@@ -357,10 +367,16 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         self,
         df: pd.DataFrame,
         text_col: Union[List[str], str],
+        preset_tag_col: str,
         options: List[str],
     ) -> None:
+        """
+        Register properties to the class
+        """
         self.df = df
         self.text_col = text_col
+        self.preset_tag_col = preset_tag_col
+
         self.options = options
         self.register_functions()
 
