@@ -14,24 +14,44 @@ class Dispatcher:
         return f"Job Dispatcher: n:{self.n},v:{self.v}"
 
     def __getitem__(self, user_id):
+        return self.fetch_index(user_id)
+
+    def fetch_index(
+        self, user_id,
+        known_index: int = None
+    ):
+        """
+        known_index is usually none, it only as value
+            when used in recover history
+        """
+        # read from cache
         if user_id in self.cache_data:
             return self.cache_data[user_id]
+
+        if known_index is not None:
+            if known_index in self.new:
+                # move ahead, remove the new queue
+                self.new.remove(known_index)
+            return known_index
+
+        # read from existing process, meaning other user has already
+        # started to process this job
         else:
-            for k, v in self.processing.items():
-                if len(self.processing[k]) >= self.v:
-                    continue
-                if user_id in v:
-                    continue
+            for index, user_list in self.processing.items():
+                if len(self.processing[index]) >= self.v:
+                    continue  # read new
+                if user_id in user_list:
+                    continue  # read new
                 else:
-                    v.append(user_id)
-                    self.cache_data[user_id] = k
-                    return k
+                    user_list.append(user_id)
+                    self.cache_data[user_id] = index
+                    return index
 
         # read_new
         if len(self.new) > 0:
-            item = self.new[0]
-            self.processing[item] = []
-            self.new.remove(item)
+            index = self.new[0]
+            self.processing[index] = []
+            self.new.remove(index)
             return self[user_id]
         else:
             return -1
@@ -80,7 +100,7 @@ class Progress:
         user_id, random generated hex string
         return the next id for dataframe index
         """
-        return self.dispatcher[user_id]
+        return self.dispatcher.fetch_index(user_id)
 
     def recover_history(self, data):
         """
@@ -92,6 +112,7 @@ class Progress:
 
         # using pandas to map to new index
         index = self.idx_to_index[pandas]
+        index = self.dispatcher.fetch_index(user_id, known_index=index)
         self.tagging(data)
         self.dispatcher.finish_update(user_id=user_id, index=index)
 

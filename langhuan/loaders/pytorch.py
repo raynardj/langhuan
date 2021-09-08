@@ -39,7 +39,7 @@ def get_ner_data_class():
 
         def __getitem__(self, idx):
             label = self.labels[idx]
-            text = self.texts[str(label["index"])]
+            text = self.texts[str(label["pandas"])]
             return text, label['tags']
 
         def split_train_valid(self, valid_ratio: float = .2):
@@ -54,14 +54,18 @@ def get_ner_data_class():
             train_texts, val_texts = dict(), dict()
             train_labels, val_labels = dict(), dict()
 
+            # when spliting data we put all the textinto
+            #   both train and valid
             for index, text in self.texts.items():
+                index = str(index)
                 if random.random() > valid_ratio:
-                    train_texts.update({index: text})
                     all_train_index.append(str(index))
-                else:
-                    val_texts.update({index: text})
+                train_texts.update({index: text})
+                val_texts.update({index: text})
 
-            for index, label_list in self.data["labels"].items():
+            # we only separate the train valid for labels
+            for idx, label_list in self.data["labels"].items():
+                index = str(label_list[0]["pandas"])
                 if index in all_train_index:
                     train_labels.update({index: label_list})
                 else:
@@ -79,6 +83,7 @@ def get_ner_data_class():
                 else:
                     train_data.update({k: v})
                     val_data.update({k: v})
+            # instantiate by the same class
             return self.__class__(train_data, **self.passon_kwargs),\
                 self.__class__(val_data, **self.passon_kwargs)
     return NERDataset
@@ -102,10 +107,31 @@ def get_ner_hf_class():
 
         def __init__(
             self,
-            data,
+            data: Dict[str, Any],
             tokenizer,
-            tokenization_options=dict(),
+            tokenization_options: Dict[str, Any] = dict({
+                'return_offsets_mapping': True,
+                'padding': 'max_length',
+                'return_tensors': 'pt',
+                'truncation': True,
+                'max_length': 512}),
         ):
+            """
+            data: contains at least the following keys
+                texts: Dict[str, Any], a dictionary of texts, could be empty
+                labels: Dict[str, Any], a dictionary of labels, could be empty
+                options: Dict[str, Any], a dictionary of options,
+                    could be empty
+
+            tokenizer: a huggingface tokenizer class object
+
+            tokenization_options: tokenization options for tokenizer
+                eg.{'return_offsets_mapping': True,
+                    'padding': 'max_length',
+                    'return_tensors': 'pt',
+                    'truncation': True,
+                    'max_length': 512}
+            """
             super().__init__(data)
             self.options = self.data["options"]
 
@@ -169,7 +195,8 @@ def get_ner_hf_class():
             return {
                 "input_ids": x,
                 "attention_mask": tked["attention_mask"],
-                "targets": y
+                "targets": y,
+                "offset_mapping": offset_mapping,
             }
 
         def get_data_loader(self, **kwargs):
@@ -195,7 +222,7 @@ def get_ner_hf_class():
                     batch_size=batch_size, shuffle=True)))
 
         @staticmethod
-        def tensor_postion_map(
+        def tensor_position_map(
             x: torch.LongTensor
         ) -> torch.LongTensor:
             idx_by_row = torch.arange(
@@ -218,32 +245,42 @@ def get_ner_hf_class():
             return equals_next
 
         def decode(
-            self, x: torch.Tensor, y: torch.Tensor
+            self, batch: Dict[str, torch.Tensor], y: torch.Tensor,
         ) -> List[Dict[str, Union[int, str]]]:
             """
-            convert x tensor, y_index tensor
+            convert batch input, y_index tensor
                 back to entity metadata
             """
+            x = batch["input_ids"]
+            offsets = batch["offset_mapping"]
+
             equals_next = self.equal_to_next_map(y)
-            mapping = self.tensor_postion_map(x)
+            mapping = self.tensor_position_map(x)
+            # has positive prediction
             has_pos = (y != 0)
 
             ids = []
             tokens = []
+            start_pos = None
 
-            for e, x_1, y_1, (row_id, token_id) in zip(
+            for e, offset, x_1, y_1, (row_id, token_id) in zip(
                     equals_next[has_pos],
+                    offsets[has_pos],
                     x[has_pos], y[has_pos], mapping[has_pos]):
 
                 ids.append(x_1.item())
+                if start_pos is None:
+                    start_pos = offset[0]
                 if e.item() is False:
                     tokens.append({
                         "row_id": row_id.item(),
                         "token_id": token_id.item(),
                         "text": self.tokenizer.decode(ids),
                         "label": self.i2c[y_1.item()],
+                        "offset": int(start_pos.item()),
                     })
                     ids = []
+                    start_pos = None
 
             return tokens
     return NERDatasetHF
@@ -265,7 +302,12 @@ def load_ner_data_pytorch(file_path: Path):
 def load_ner_data_pytorch_huggingface(
     file_path: Path,
     tokenizer,
-    tokenization_options: Dict[str, Any] = dict(),
+    tokenization_options: Dict[str, Any] = dict({
+                'return_offsets_mapping': True,
+                'padding': 'max_length',
+                'return_tensors': 'pt',
+                'truncation': True,
+                'max_length': 512}),
 ):
     """
     Automate the process from langhuan export

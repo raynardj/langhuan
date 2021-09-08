@@ -14,6 +14,7 @@ import pandas as pd
 from typing import List, Union, Callable
 from pathlib import Path
 from uuid import uuid4
+from tqdm import tqdm
 
 
 class LangHuanBaseTask(Flask, OrderStrategies):
@@ -28,7 +29,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         options: List[str] = None,
         load_history: bool = False,
         preset_tag_col: str = None,
-        save_frequency: int = 42,
+        save_frequency: int = 5,
         order_strategy: Union[str, Callable] = "forward_march",
         order_by_column: str = None,
         cross_verify_num: int = 1,
@@ -103,7 +104,8 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             logging.info(f"start loading history")
             # loading the history to progress
             if len(app.task_history.history) > 0:
-                for data in app.task_history.history:
+                for data in tqdm(
+                    app.task_history.history, leave=False):
                     app.progress.recover_history(data)
             logging.info(f"history loaded")
         return app
