@@ -3,6 +3,7 @@ import json
 from functools import partial
 from typing import Dict, Union, List, Tuple, Any
 import random
+import logging
 
 
 def get_ner_data_class():
@@ -21,6 +22,8 @@ def get_ner_data_class():
         def __init__(self, data):
             self.data = data
             self.labels = []
+            logging.info(
+                f"collecting labels:{len(data['labels'])}")
             for index, labels in data['labels'].items():
                 self.labels += list(filter(
                     lambda x: "skipped" not in x, labels))
@@ -133,6 +136,7 @@ def get_ner_hf_class():
                     'max_length': 512}
             """
             super().__init__(data)
+            logging.info("initializing NERDatasetHF")
             self.options = self.data["options"]
 
             self.tokenizer = tokenizer
@@ -317,6 +321,9 @@ def load_ner_data_pytorch_huggingface(
     """
     with open(file_path, "r") as f:
         json_data = json.loads(f.read())
+
+    logging.info(f"loading data from {file_path}")
+    logging.info(f"loaded data has keys: {json_data.keys()}")
 
     NERDatasetHF = get_ner_hf_class()
 
