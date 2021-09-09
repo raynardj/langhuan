@@ -25,8 +25,9 @@ def get_ner_data_class():
             logging.info(
                 f"collecting labels:{len(data['labels'])}")
             for index, labels in data['labels'].items():
+                # filter out the texts that user choose to skip
                 self.labels += list(filter(
-                    lambda x: "skipped" not in x, labels))
+                    lambda x: x.get("skipped") is not True, labels))
             self.texts = data['texts']
             self.options = data['options']
             self.i2c = dict(enumerate(["O", ]+self.options))
