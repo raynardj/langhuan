@@ -14,7 +14,6 @@ import pandas as pd
 from typing import List, Union, Callable
 from pathlib import Path
 from uuid import uuid4
-from tqdm import tqdm
 
 
 class LangHuanBaseTask(Flask, OrderStrategies):
@@ -104,8 +103,7 @@ class LangHuanBaseTask(Flask, OrderStrategies):
             logging.info(f"start loading history")
             # loading the history to progress
             if len(app.task_history.history) > 0:
-                for data in tqdm(
-                    app.task_history.history, leave=False):
+                for data in app.task_history.history:
                     app.progress.recover_history(data)
             logging.info(f"history loaded")
         return app
@@ -292,7 +290,8 @@ class LangHuanBaseTask(Flask, OrderStrategies):
                     index = data["index"]
                     by_user[user_id]["entries"].append(index)
                     if "skipped" in data:
-                        by_user[user_id]["skipped"].append(index)
+                        if data["skipped"] is True:
+                            by_user[user_id]["skipped"].append(index)
             for user_id, v in by_user.items():
                 v["entry_ct"] = len(set(v["entries"]))
                 v["skip_ct"] = len(set(v["skipped"]))
