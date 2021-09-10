@@ -4,6 +4,41 @@ from functools import partial
 from typing import Dict, Union, List, Tuple, Any
 import random
 import logging
+import torch
+
+
+def build_word_map(
+    word_ids: List[int]
+    ) -> List[bool]:
+    """
+    build a is_word_map
+        it will set True for the 1st token of a word
+    """
+    word_map = []
+    last = None
+    for i in word_ids:
+        if i is None:
+            word_map.append(False)
+        elif i != last:
+            word_map.append(True)
+        else:
+            word_map.append(False)
+        last = i
+    return word_map
+
+
+def word_mapping(tokens):
+    """
+    process a tokenizer result, returning the result with
+        ```tokens.is_word_map```
+    """
+    result = []
+    for row_id in range(tokens.input_ids.shape[0]):
+        word_map = build_word_map(tokens.word_ids(row_id))
+        result.append(word_map)
+    tokens["is_word_map"] = torch.BoolTensor(
+        result).to(tokens.input_ids.device)
+    return tokens
 
 
 def get_ner_data_class():
@@ -96,7 +131,6 @@ def get_ner_data_class():
 def get_ner_hf_class():
     try:
         from torch.utils.data.dataloader import DataLoader
-        import torch
     except ModuleNotFoundError:
         raise ModuleNotFoundError(
             "Please install pytorch first https://pytorch.org/")
@@ -119,6 +153,7 @@ def get_ner_hf_class():
                 'return_tensors': 'pt',
                 'truncation': True,
                 'max_length': 512}),
+            return_word_mapping: bool = True,
         ):
             """
             data: contains at least the following keys
@@ -141,6 +176,7 @@ def get_ner_hf_class():
             self.options = self.data["options"]
 
             self.tokenizer = tokenizer
+            self.return_word_mapping = return_word_mapping
 
             # default tokenization options
             # this will be overriden by the tokenization_options
@@ -190,19 +226,16 @@ def get_ner_hf_class():
                     tag_mask = (tag_pos[0] <= offset_mapping[row, :, 0]) * \
                         (tag_pos[1] >= offset_mapping[row, :, 1]) * \
                         self.c2i[tag_label]
-#                     text_recorver = texts[row][tag_pos[0]: tag_pos[1]]
-#                     print(f"text reslice:{text_recorver}")
-#                     token_decoded = self.tokenizer.decode(
-#                        list(x[row, (tag_mask !=0 )]))
-#                     print(f"token decoded: {token_decoded}")
 
                     y[row, :len(tag_mask)] += tag_mask
-            return {
-                "input_ids": x,
-                "attention_mask": tked["attention_mask"],
-                "targets": y,
-                "offset_mapping": offset_mapping,
-            }
+
+            tked["targets"] = y
+
+            # if chosen so, we will return a mask of the tokens that
+            # is the first token of a word
+            if self.return_word_mapping:
+                tked = word_mapping(tked)
+            return tked
 
         def get_data_loader(self, **kwargs):
             """
@@ -308,11 +341,11 @@ def load_ner_data_pytorch_huggingface(
     file_path: Path,
     tokenizer,
     tokenization_options: Dict[str, Any] = dict({
-                'return_offsets_mapping': True,
-                'padding': 'max_length',
-                'return_tensors': 'pt',
-                'truncation': True,
-                'max_length': 512}),
+        'return_offsets_mapping': True,
+        'padding': 'max_length',
+        'return_tensors': 'pt',
+        'truncation': True,
+        'max_length': 512}),
 ):
     """
     Automate the process from langhuan export
