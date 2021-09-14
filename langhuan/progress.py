@@ -1,5 +1,6 @@
 from typing import List, Callable, Union
 import logging
+from json import dumps
 
 
 class Dispatcher:
@@ -57,9 +58,12 @@ class Dispatcher:
             return -1
 
     def finish_update(self, user_id, index):
+        logging.debug(f"[FINISHING]{user_id},{index}")
         if user_id in self.cache_data:
+            logging.debug(f"[CLEAR CACHE]{user_id}")
             del self.cache_data[user_id]
         if index in self.processing:
+            logging.debug(f"[CLEAR PROCESS]{index}")
             if len(self.processing[index]) >= self.v:
                 del self.processing[index]
 
@@ -119,7 +123,10 @@ class Progress:
     def tagging(self, data):
         index = data["index"]
         user_id = data["user_id"]
+        logging.debug(f"[TAGGIN]{user_id},{index}")
+        logging.debug(dumps(data, indent=2))
         # recover the pandas index
+        logging.info(f"[UPDATE DEPTH]{index},{user_id}")
         self.depth[index][user_id] = data
         self.dispatcher.finish_update(user_id=user_id, index=index)
         self.update_personal(data)

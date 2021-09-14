@@ -69,7 +69,6 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         """
         app_name = cls.create_task_name(task_name, cls.task_type)
 
-        logging.getLogger().setLevel(logging.INFO)
         app = cls(
             app_name,
             static_folder=str(get_root()/"static"),
@@ -238,6 +237,8 @@ class LangHuanBaseTask(Flask, OrderStrategies):
         def tagging():
             remote_addr = request.remote_addr
             data = json.loads(request.data)
+            logging.debug(f"""[REQUEST DATA: tagging]{json.dumps(
+                data, indent=2)}""")
             data.update({
                 "remote_addr": remote_addr,
                 "now": now_specific(),
